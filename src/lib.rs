@@ -1,4 +1,5 @@
 use std::sync::Arc;
+use std::collections::BinaryHeap;
 
 use near_sdk::borsh::{self, BorshDeserialize, BorshSerialize};
 use near_sdk::json_types::U128;
@@ -19,5 +20,6 @@ struct Contract {
     owned_id: AccountId,
     sell_command: LookupMap<CommandId, Command>,
     buy_command: LookupMap<CommandId, Command>,
-    cheapest_sell: LookupMap<NameProduct, Command>,
+    cheapest_sell: BinaryHeap<Command>,
+    most_expensive_buy: BinaryHeap<Command>,
 }
