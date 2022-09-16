@@ -15,3 +15,9 @@ pub struct Command {
     create_at: Timestamp,
     command_owner_id: AccountId,
 }
+
+impl Command {
+    pub fn get_price_per_product(&self) -> U128{
+        self.price_per_product
+    }
+}
