@@ -47,6 +47,9 @@ impl Command {
     pub fn get_command_owner_id(&self) -> AccountId {
         self.command_owner_id.clone()
     }
+    pub fn get_is_sell(&self) -> bool {
+        self.is_sell
+    }
     pub fn set_amount_product(&mut self, amount_product: U128) {
         self.amount_product = amount_product
     }
