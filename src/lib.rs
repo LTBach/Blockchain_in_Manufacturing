@@ -206,5 +206,8 @@ impl Contract {
         }
         self.commands.remove(&command_id);
     }
+    pub fn get_command(&self, command_id: CommandId) -> Command{
+        self.commands.get(&command_id).expect("ERROR COMMAND NOT FOUND")
+    }
 }
 
