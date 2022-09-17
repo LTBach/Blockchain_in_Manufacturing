@@ -68,7 +68,8 @@ impl Contract {
                                 if highest_buy.get_price_per_product() >= price_per_product {
                                     let amount_product_highest_buy = highest_buy.get_amount_product();
                                     if amount_product_mut < amount_product_highest_buy {
-                                        // Promise::new(env::signer_account_id()).transfer(highest_buy.get_command_owner_id())
+                                        Promise::new(env::signer_account_id())
+                                        .transfer(amount_product.0 * highest_buy.get_price_per_product().0);
                                         highest_buy.set_amount_product(U128(amount_product_highest_buy.0 - amount_product_mut.0));
                                         amount_product_mut = U128(0);
                                         self.buy_command.insert(&highest_buy.get_command_id(), &highest_buy);
@@ -76,7 +77,8 @@ impl Contract {
                                         self.orderd_buy.insert(&name_product, &treemap);
                                         break;
                                     } else {
-                                        //Thanh toan
+                                        Promise::new(env::signer_account_id())
+                                        .transfer(amount_product_highest_buy.0 * highest_buy.get_price_per_product().0);
                                         amount_product_mut = U128(amount_product_mut.0 - amount_product_highest_buy.0);
                                         treemap.remove(&highest_buy.get_key_for_map());
                                         self.buy_command.remove(&highest_buy.get_command_id());
@@ -111,6 +113,9 @@ impl Contract {
             }
         } else {
             assert!(env::attached_deposit() >= price_per_product.0 * amount_product.0,"BUY COMMAND HAS NOT ENGOUGH DEPOSIT");
+            if env::attached_deposit() > price_per_product.0 * amount_product.0 {
+                Promise::new(signer_account_id()).transfer(price_per_product.0 * amount_product.0 - env::attached_deposit());
+            }
             match self.orderd_sell.get(&name_product) {
                 Some(mut treemap) => {
                     while amount_product_mut.0 != 0 {
@@ -120,7 +125,8 @@ impl Contract {
                                 if lowest_sell.get_price_per_product() <= price_per_product {
                                     let amount_product_lowest_sell = lowest_sell.get_amount_product();
                                     if amount_product_mut < amount_product_lowest_sell {
-                                        //Thanh toan
+                                        Promise::new(lowest_sell.get_command_owner_id())
+                                        .transfer(amount_product_mut.0 * lowest_sell.get_price_per_product().0);
                                         lowest_sell.set_amount_product(U128(amount_product_lowest_sell.0 - amount_product_mut.0));
                                         amount_product_mut = U128(0);
                                         self.sell_command.insert(&lowest_sell.get_command_id(), &lowest_sell);
@@ -128,7 +134,8 @@ impl Contract {
                                         self.orderd_sell.insert(&name_product, &treemap);
                                         break;
                                     } else {
-                                        //Thanh toan
+                                        Promise::new(lowest_sell.get_command_owner_id())
+                                        .transfer(amount_product_lowest_sell.0 * lowest_sell.get_price_per_product().0);
                                         amount_product_mut = U128(amount_product_mut.0 - amount_product_lowest_sell.0);
                                         treemap.remove(&lowest_sell.get_key_for_map());
                                         self.sell_command.remove(&lowest_sell.get_command_id());
