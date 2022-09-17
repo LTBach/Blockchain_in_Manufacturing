@@ -2,11 +2,11 @@ use crate::*;
 
 #[derive(BorshDeserialize, BorshSerialize, Deserialize, Serialize,Clone)]
 #[serde(crate = "near_sdk::serde")]
-pub struct KeyForMap {
+pub struct KeyForTree {
     price_per_product: U128,
     command_id: CommandId,
 }
-impl KeyForMap {
+impl KeyForTree {
     pub fn new(price_per_product: U128, command_id: CommandId) -> Self {
         Self {
             price_per_product,
@@ -20,7 +20,7 @@ impl KeyForMap {
         self.command_id.clone()
     }
 }
-impl Ord for KeyForMap {
+impl Ord for KeyForTree {
     fn cmp(&self, other: &Self) -> Ordering {
         if self.get_price_per_product() == other.get_price_per_product() {
             self.get_command_id().cmp(&other.get_command_id())
@@ -30,17 +30,17 @@ impl Ord for KeyForMap {
     }
 }
 
-impl PartialOrd for KeyForMap {
+impl PartialOrd for KeyForTree {
     fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
         Some(self.cmp(other))
     }
 }
 
-impl PartialEq for KeyForMap {
+impl PartialEq for KeyForTree {
     fn eq(&self, other: &Self) -> bool {
         self.get_price_per_product() == other.get_price_per_product()
         && self.get_command_id() == other.get_command_id()
     }
 }
 
-impl Eq for KeyForMap { }
+impl Eq for KeyForTree { }
