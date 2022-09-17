@@ -1,6 +1,6 @@
 use crate::*;
 
-mod quality;
+pub mod quality;
 use quality::*;
 
 #[derive(BorshDeserialize, BorshSerialize, Deserialize, Serialize)]
@@ -37,5 +37,17 @@ impl Command {
     }
     pub fn get_command_id(&self) -> CommandId {
         self.command_id.clone()
+    }
+    pub fn get_key_for_map(&self) -> KeyForTree {
+        KeyForTree::new(self.price_per_product,self.command_id.clone())
+    }
+    pub fn get_amount_product(&self) -> U128 {
+        self.amount_product
+    }
+    pub fn get_command_owner_id(&self) -> AccountId {
+        self.command_owner_id.clone()
+    }
+    pub fn set_amount_product(&mut self, amount_product: U128) {
+        self.amount_product = amount_product
     }
 }
