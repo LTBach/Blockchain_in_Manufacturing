@@ -22,8 +22,7 @@ pub const TRANSFER_GAS: Gas = Gas(10_000_000_000_000);
 #[near_bindgen]
 struct Contract {
     owner_id: AccountId,
-    sell_command: LookupMap<CommandId, Command>,
-    buy_command: LookupMap<CommandId, Command>,
+    commands: LookupMap<CommandId, Command>,
     orderd_sell: LookupMap<NameProduct, TreeMap<KeyForTree, Command>>,
     orderd_buy: LookupMap<NameProduct, TreeMap<KeyForTree, Command>>,
     number_of_item_in_sell: i64,
@@ -32,8 +31,7 @@ struct Contract {
 
 #[derive(BorshDeserialize, BorshSerialize, BorshStorageKey)]
 enum StorageKey{
-    SellKey,
-    BuyKey,
+    CommandKey,
     OrderedSellKey,
     OrderedBuyKey,
     TreeBuyKey(i64),
@@ -46,8 +44,7 @@ impl Contract {
     pub fn new(owner_id: AccountId) -> Self {
         Self {
             owner_id,
-            sell_command: LookupMap::new(StorageKey::SellKey),
-            buy_command: LookupMap::new(StorageKey::BuyKey),
+            commands: LookupMap::new(StorageKey::CommandKey),
             orderd_sell: LookupMap::new(StorageKey::OrderedSellKey),
             orderd_buy: LookupMap::new(StorageKey::OrderedBuyKey),
             number_of_item_in_sell: 0,
@@ -73,7 +70,7 @@ impl Contract {
                                         .transfer(amount_product.0 * highest_buy.get_price_per_product().0);
                                         highest_buy.set_amount_product(U128(amount_product_highest_buy.0 - amount_product_mut.0));
                                         amount_product_mut = U128(0);
-                                        self.buy_command.insert(&highest_buy.get_command_id(), &highest_buy);
+                                        self.commands.insert(&highest_buy.get_command_id(), &highest_buy);
                                         treemap.insert(&highest_buy.get_key_for_map(),&highest_buy);
                                         self.orderd_buy.insert(&name_product, &treemap);
                                         break;
@@ -82,7 +79,7 @@ impl Contract {
                                         .transfer(amount_product_highest_buy.0 * highest_buy.get_price_per_product().0);
                                         amount_product_mut = U128(amount_product_mut.0 - amount_product_highest_buy.0);
                                         treemap.remove(&highest_buy.get_key_for_map());
-                                        self.buy_command.remove(&highest_buy.get_command_id());
+                                        self.commands.remove(&highest_buy.get_command_id());
                                     }
                                 } else {
                                     break;
@@ -99,7 +96,7 @@ impl Contract {
             if amount_product_mut.0 != 0 {
                 let command = Command::new(command_id.clone(), name_product.clone(), is_sell,
                     amount_product_mut, price_per_product, quality);
-                self.sell_command.insert(&command_id, &command);
+                self.commands.insert(&command_id, &command);
                 match self.orderd_sell.get(&name_product) {
                     Some(mut treemap) => {
                         treemap.insert(&KeyForTree::new(price_per_product, command_id), &command);
@@ -130,7 +127,7 @@ impl Contract {
                                         .transfer(amount_product_mut.0 * lowest_sell.get_price_per_product().0);
                                         lowest_sell.set_amount_product(U128(amount_product_lowest_sell.0 - amount_product_mut.0));
                                         amount_product_mut = U128(0);
-                                        self.sell_command.insert(&lowest_sell.get_command_id(), &lowest_sell);
+                                        self.commands.insert(&lowest_sell.get_command_id(), &lowest_sell);
                                         treemap.insert(&lowest_sell.get_key_for_map(),&lowest_sell);
                                         self.orderd_sell.insert(&name_product, &treemap);
                                         break;
@@ -139,7 +136,7 @@ impl Contract {
                                         .transfer(amount_product_lowest_sell.0 * lowest_sell.get_price_per_product().0);
                                         amount_product_mut = U128(amount_product_mut.0 - amount_product_lowest_sell.0);
                                         treemap.remove(&lowest_sell.get_key_for_map());
-                                        self.sell_command.remove(&lowest_sell.get_command_id());
+                                        self.commands.remove(&lowest_sell.get_command_id());
                                     }
                                 } else {
                                     break;
@@ -156,7 +153,7 @@ impl Contract {
             if amount_product_mut.0 != 0 {
                 let command = Command::new(command_id.clone(), name_product.clone(), is_sell,
                     amount_product_mut, price_per_product, quality);
-                self.buy_command.insert(&command_id, &command);
+                self.commands.insert(&command_id, &command);
                 match self.orderd_buy.get(&name_product) {
                     Some(mut treemap) => {
                         treemap.insert(&KeyForTree::new(price_per_product, command_id), &command);
@@ -200,6 +197,14 @@ impl Contract {
             }
         }
     }
-
+    pub fn remove_command(&mut self, command_id: CommandId) {
+        let command = self.commands.get(&command_id).expect("ERROR COMMAND NOT FOUND");
+        assert_eq!(env::signer_account_id(), command.get_command_owner_id(), "ERROR YOU ARE NOT OWNER OF COMMAND");
+        if !command.get_is_sell() {
+            Promise::new(env::signer_account_id())
+            .transfer(command.get_amount_product().0 * command.get_price_per_product().0);
+        }
+        self.commands.remove(&command_id);
+    }
 }
 
