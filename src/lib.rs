@@ -54,6 +54,7 @@ impl Contract {
             number_of_item_in_buy: 0,
         }
     }
+    #[payable]
     pub fn add_commnand(&mut self, command_id: CommandId, name_product: NameProduct, is_sell: bool, 
         amount_product: U128, price_per_product: U128, quality: Option<Quality>) {
         let mut amount_product_mut = amount_product;
@@ -170,5 +171,35 @@ impl Contract {
             }
         }
     }
+    pub fn get_product_order_way(&self, name_product: NameProduct, is_sell: bool) -> Vec<Command> {
+        if is_sell {
+            match self.orderd_sell.get(&name_product) {
+                Some(treemap) => {
+                    let mut ans = Vec::new();
+                    for (a, b) in treemap.iter() {
+                        ans.push(b);
+                    }
+                    ans
+                },
+                None => {
+                    Vec::new()
+                }
+            }
+        } else {
+            match self.orderd_buy.get(&name_product) {
+                Some(treemap) => {
+                    let mut ans = Vec::new();
+                    for (a, b) in treemap.iter_rev() {
+                        ans.push(b);
+                    }
+                    ans
+                },
+                None => {
+                    Vec::new()
+                }
+            }
+        }
+    }
+
 }
 
