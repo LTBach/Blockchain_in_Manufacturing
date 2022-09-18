@@ -1,4 +1,4 @@
-use std::sync::Arc;
+// use std::sync::Arc;
 use std::cmp::Ordering;
 // use std::thread::{__FastLocalKeyInner, __OsLocalKeyInner};
 
@@ -6,8 +6,8 @@ use near_sdk::borsh::{self, BorshDeserialize, BorshSerialize};
 use near_sdk::env::signer_account_id;
 use near_sdk::json_types::U128;
 use near_sdk::serde::{Deserialize, Serialize};
-use near_sdk::{env, AccountId, near_bindgen, Balance, PanicOnDefault, PromiseOrValue, Promise, Timestamp, BorshStorageKey, ext_contract, PromiseResult, Gas};
-use near_sdk::collections::{LookupMap, Vector, TreeMap};
+use near_sdk::{env, AccountId, near_bindgen, PanicOnDefault, Promise, Timestamp, BorshStorageKey, Gas};
+use near_sdk::collections::{LookupMap, TreeMap};
 
 mod command;
 use command::{*,quality::*};
@@ -57,6 +57,7 @@ impl Contract {
         let mut amount_product_mut = amount_product;
         if is_sell {
             assert!(env::attached_deposit() == 0, "SELL COMMAND NOT USE DEPOSIT");
+            let mut amount_seller_reiceive: u128 = 0;
             match self.orderd_buy.get(&name_product.clone()) {
                 Some(mut treemap) => {
                     while amount_product_mut.0 != 0 {
@@ -65,9 +66,10 @@ impl Contract {
                                 let mut highest_buy = treemap.get(&highest_buy_key_for_map).expect("CAN NOT BUG 1");
                                 if highest_buy.get_price_per_product() >= price_per_product {
                                     let amount_product_highest_buy = highest_buy.get_amount_product();
+                                    let price_per_product_highest_buy = highest_buy.get_price_per_product();
                                     if amount_product_mut < amount_product_highest_buy {
-                                        Promise::new(env::signer_account_id())
-                                        .transfer(amount_product.0 * highest_buy.get_price_per_product().0);
+                                        amount_seller_reiceive = amount_seller_reiceive + 
+                                                                 amount_product_mut.0 * price_per_product_highest_buy.0;
                                         highest_buy.set_amount_product(U128(amount_product_highest_buy.0 - amount_product_mut.0));
                                         amount_product_mut = U128(0);
                                         self.commands.insert(&highest_buy.get_command_id(), &highest_buy);
@@ -75,8 +77,8 @@ impl Contract {
                                         self.orderd_buy.insert(&name_product, &treemap);
                                         break;
                                     } else {
-                                        Promise::new(env::signer_account_id())
-                                        .transfer(amount_product_highest_buy.0 * highest_buy.get_price_per_product().0);
+                                        amount_seller_reiceive = amount_seller_reiceive + 
+                                                                 amount_product_highest_buy.0 * price_per_product_highest_buy.0;
                                         amount_product_mut = U128(amount_product_mut.0 - amount_product_highest_buy.0);
                                         treemap.remove(&highest_buy.get_key_for_map());
                                         self.commands.remove(&highest_buy.get_command_id());
@@ -92,6 +94,10 @@ impl Contract {
                     }
                 }
                 None => {},
+            }
+            if amount_seller_reiceive != 0 {
+                Promise::new(signer_account_id())
+                .transfer(amount_seller_reiceive);
             }
             if amount_product_mut.0 != 0 {
                 let command = Command::new(command_id.clone(), name_product.clone(), is_sell,
@@ -111,6 +117,7 @@ impl Contract {
             }
         } else {
             assert!(env::attached_deposit() >= price_per_product.0 * amount_product.0,"BUY COMMAND HAS NOT ENGOUGH DEPOSIT");
+            let mut amount_buyer_exceed: u128 = 0;
             if env::attached_deposit() > price_per_product.0 * amount_product.0 {
                 Promise::new(signer_account_id()).transfer(price_per_product.0 * amount_product.0 - env::attached_deposit());
             }
@@ -122,9 +129,12 @@ impl Contract {
                                 let mut lowest_sell = treemap.get(&lowest_sell_key_for_map).expect("CAN NOT BUG 2");
                                 if lowest_sell.get_price_per_product() <= price_per_product {
                                     let amount_product_lowest_sell = lowest_sell.get_amount_product();
+                                    let price_per_product_lowest_sell = lowest_sell.get_price_per_product();
                                     if amount_product_mut < amount_product_lowest_sell {
+                                        amount_buyer_exceed = amount_buyer_exceed +
+                                                              amount_product_mut.0 * (price_per_product.0 - price_per_product_lowest_sell.0);
                                         Promise::new(lowest_sell.get_command_owner_id())
-                                        .transfer(amount_product_mut.0 * lowest_sell.get_price_per_product().0);
+                                        .transfer(amount_product_mut.0 * price_per_product_lowest_sell.0);
                                         lowest_sell.set_amount_product(U128(amount_product_lowest_sell.0 - amount_product_mut.0));
                                         amount_product_mut = U128(0);
                                         self.commands.insert(&lowest_sell.get_command_id(), &lowest_sell);
@@ -132,8 +142,10 @@ impl Contract {
                                         self.orderd_sell.insert(&name_product, &treemap);
                                         break;
                                     } else {
+                                        amount_buyer_exceed = amount_buyer_exceed +
+                                                              amount_product_lowest_sell.0 * (price_per_product.0 - price_per_product_lowest_sell.0);
                                         Promise::new(lowest_sell.get_command_owner_id())
-                                        .transfer(amount_product_lowest_sell.0 * lowest_sell.get_price_per_product().0);
+                                        .transfer(amount_product_lowest_sell.0 * price_per_product_lowest_sell.0);
                                         amount_product_mut = U128(amount_product_mut.0 - amount_product_lowest_sell.0);
                                         treemap.remove(&lowest_sell.get_key_for_map());
                                         self.commands.remove(&lowest_sell.get_command_id());
@@ -150,6 +162,10 @@ impl Contract {
                 }
                 None => {},
             }
+            if amount_buyer_exceed != 0 {
+                Promise::new(signer_account_id())
+                .transfer(amount_buyer_exceed);
+            }
             if amount_product_mut.0 != 0 {
                 let command = Command::new(command_id.clone(), name_product.clone(), is_sell,
                     amount_product_mut, price_per_product, quality);
@@ -159,7 +175,7 @@ impl Contract {
                         treemap.insert(&KeyForTree::new(price_per_product, command_id), &command);
                     }
                     None => {
-                        let mut treemap = TreeMap::new(StorageKey::TreeBuyKey((self.number_of_item_in_buy)));
+                        let mut treemap = TreeMap::new(StorageKey::TreeBuyKey(self.number_of_item_in_buy));
                         self.number_of_item_in_buy = self.number_of_item_in_buy + 1;
                         treemap.insert(&KeyForTree::new(price_per_product, command_id), &command);
                         self.orderd_buy.insert(&name_product, &treemap);
@@ -173,7 +189,7 @@ impl Contract {
             match self.orderd_sell.get(&name_product) {
                 Some(treemap) => {
                     let mut ans = Vec::new();
-                    for (a, b) in treemap.iter() {
+                    for (_a, b) in treemap.iter() {
                         ans.push(b);
                     }
                     ans
@@ -186,7 +202,7 @@ impl Contract {
             match self.orderd_buy.get(&name_product) {
                 Some(treemap) => {
                     let mut ans = Vec::new();
-                    for (a, b) in treemap.iter_rev() {
+                    for (_a, b) in treemap.iter_rev() {
                         ans.push(b);
                     }
                     ans
