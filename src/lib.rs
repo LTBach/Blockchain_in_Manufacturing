@@ -39,6 +39,7 @@ enum StorageKey{
 }
 
 #[near_bindgen]
+#[allow(dead_code)]
 impl Contract {
     #[init]
     pub fn new(owner_id: AccountId) -> Self {
@@ -52,6 +53,7 @@ impl Contract {
         }
     }
     #[payable]
+
     pub fn add_commnand(&mut self, command_id: CommandId, name_product: NameProduct, is_sell: bool, 
         amount_product: U128, price_per_product: U128, quality: Option<Quality>) {
         let mut amount_product_mut = amount_product;
@@ -226,4 +228,99 @@ impl Contract {
         self.commands.get(&command_id).expect("ERROR COMMAND NOT FOUND")
     }
 }
+#[allow(unused_imports)]
+#[cfg(all(test, not(target_arch = "wasm32")))]
+mod test {
+    use super::*;
+    use near_sdk::test_utils::{VMContextBuilder, accounts};
+    use near_sdk::{testing_env, MockedBlockchain};
 
+    fn get_context(is_view: bool) -> VMContextBuilder {
+        let mut builder = VMContextBuilder::new();
+        builder.current_account_id(accounts(0))
+            .signer_account_id(accounts(0))
+            .predecessor_account_id(accounts(0))
+            .is_view(is_view);
+        builder
+    }
+
+    #[test]
+    fn test_add_buy_command() {
+        let mut context = get_context(false);
+        let contract_account = accounts(0);
+        
+        context.account_balance(1000)
+            .predecessor_account_id(contract_account.clone())
+            .attached_deposit(1000)
+            .signer_account_id(contract_account.clone());
+        testing_env!(context.build());
+
+        let mut context = get_context(false);
+        let buyer_1 = accounts(1);
+        
+        context.account_balance(1000)
+            .predecessor_account_id(buyer_1.clone())
+            .attached_deposit(1000)
+            .signer_account_id(buyer_1.clone());
+        testing_env!(context.build());
+
+        let mut contract = Contract::new(contract_account.clone());
+        let amount_product = U128(2);
+        let price_per_product = U128(500);
+        let quality = None;
+        let is_sell = false;
+
+        contract.add_commnand("command_1".to_owned(), "Iphone_14".to_owned()
+                             , is_sell, amount_product, price_per_product, quality);
+
+        let test_command = contract.get_command("command_1".to_owned());
+
+        //test
+        assert_eq!(test_command.get_command_id(), "command_1".to_owned());
+        assert_eq!(test_command.get_name_product(), "Iphone_14".to_owned());
+        assert_eq!(test_command.get_is_sell(), false);
+        assert_eq!(test_command.get_amount_product(), U128(2));
+        assert_eq!(test_command.get_price_per_product(), U128(500));
+        assert_eq!(test_command.get_command_owner_id(), buyer_1);
+    }
+    #[test]
+    #[should_panic(expected = "BUY COMMAND HAS NOT ENGOUGH DEPOSIT")]
+    fn test_add_buy_command_with_lack_attached_deposit() {
+        let mut context = get_context(false);
+        let contract_account = accounts(0);
+        
+        context.account_balance(1000)
+            .predecessor_account_id(contract_account.clone())
+            .attached_deposit(1000)
+            .signer_account_id(contract_account.clone());
+        testing_env!(context.build());
+
+        let mut context = get_context(false);
+        let buyer_2 = accounts(1);
+        
+        context.account_balance(999)
+            .predecessor_account_id(buyer_2.clone())
+            .attached_deposit(999)
+            .signer_account_id(buyer_2.clone());
+        testing_env!(context.build());
+
+        let mut contract = Contract::new(contract_account.clone());
+        let amount_product = U128(2);
+        let price_per_product = U128(500);
+        let quality = None;
+        let is_sell = false;
+
+        contract.add_commnand("command_2".to_owned(), "Iphone_14".to_owned()
+                            , is_sell, amount_product, price_per_product, quality);
+
+        let test_command = contract.get_command("command_2".to_owned());
+
+        //test
+        assert_eq!(test_command.get_command_id(), "command_2".to_owned());
+        assert_eq!(test_command.get_name_product(), "Iphone_14".to_owned());
+        assert_eq!(test_command.get_is_sell(), false);
+        assert_eq!(test_command.get_amount_product(), U128(2));
+        assert_eq!(test_command.get_price_per_product(), U128(500));
+        assert_eq!(test_command.get_command_owner_id(), buyer_2);
+    }
+}
