@@ -1,6 +1,4 @@
-// use std::sync::Arc;
 use std::cmp::Ordering;
-// use std::thread::{__FastLocalKeyInner, __OsLocalKeyInner};
 
 use near_sdk::borsh::{self, BorshDeserialize, BorshSerialize};
 use near_sdk::env::signer_account_id;
@@ -52,8 +50,8 @@ impl Contract {
             number_of_item_in_buy: 0,
         }
     }
-    #[payable]
 
+    #[payable]
     pub fn add_commnand(&mut self, command_id: CommandId, name_product: NameProduct, is_sell: bool, 
         amount_product: U128, price_per_product: U128, quality: Option<Quality>) {
         let mut amount_product_mut = amount_product;
@@ -97,6 +95,8 @@ impl Contract {
                 }
                 None => {},
             }
+            
+            // panic!("amount_seller_reiceive {}",amount_seller_reiceive);
             if amount_seller_reiceive != 0 {
                 Promise::new(signer_account_id())
                 .transfer(amount_seller_reiceive);
@@ -118,10 +118,11 @@ impl Contract {
                 }
             }
         } else {
-            assert!(env::attached_deposit() >= price_per_product.0 * amount_product.0,"BUY COMMAND HAS NOT ENGOUGH DEPOSIT");
+            assert!(env::attached_deposit() >= price_per_product.0 * amount_product.0,
+            "BUY COMMAND HAS NOT ENGOUGH DEPOSIT.IT NEED AT LEAST {}.YOU HAVE {}",price_per_product.0 * amount_product.0,env::attached_deposit());
             let mut amount_buyer_exceed: u128 = 0;
             if env::attached_deposit() > price_per_product.0 * amount_product.0 {
-                Promise::new(signer_account_id()).transfer(price_per_product.0 * amount_product.0 - env::attached_deposit());
+                Promise::new(signer_account_id()).transfer(env::attached_deposit() - price_per_product.0 * amount_product.0);
             }
             match self.orderd_sell.get(&name_product) {
                 Some(mut treemap) => {
@@ -186,6 +187,7 @@ impl Contract {
             }
         }
     }
+
     pub fn get_product_order_way(&self, name_product: NameProduct, is_sell: bool) -> Vec<Command> {
         if is_sell {
             match self.orderd_sell.get(&name_product) {
@@ -215,6 +217,7 @@ impl Contract {
             }
         }
     }
+
     pub fn remove_command(&mut self, command_id: CommandId) {
         let command = self.commands.get(&command_id).expect("ERROR COMMAND NOT FOUND");
         assert_eq!(env::signer_account_id(), command.get_command_owner_id(), "ERROR YOU ARE NOT OWNER OF COMMAND");
@@ -228,50 +231,36 @@ impl Contract {
         self.commands.get(&command_id).expect("ERROR COMMAND NOT FOUND")
     }
 }
+
+
 #[allow(unused_imports)]
 #[cfg(all(test, not(target_arch = "wasm32")))]
 mod test {
     use super::*;
+    use near_sdk::serde::ser::SerializeTupleStruct;
     use near_sdk::test_utils::{VMContextBuilder, accounts};
-    use near_sdk::{testing_env, MockedBlockchain};
+    use near_sdk::{testing_env, MockedBlockchain, Balance};
 
-    fn get_context(is_view: bool) -> VMContextBuilder {
+    const CONTRACT_ACCOUNT: &str = "contract_account_id";
+    
+    fn set_context(predecessor: &str, balance: Balance, deposit: Balance) {
         let mut builder = VMContextBuilder::new();
-        builder.current_account_id(accounts(0))
-            .signer_account_id(accounts(0))
-            .predecessor_account_id(accounts(0))
-            .is_view(is_view);
-        builder
+        builder.current_account_id(predecessor.parse().unwrap())
+            .signer_account_id(predecessor.parse().unwrap())
+            .predecessor_account_id(predecessor.parse().unwrap())
+            .account_balance(balance)
+            .attached_deposit(deposit);
+        testing_env!(builder.build());
     }
 
     #[test]
     fn test_add_buy_command() {
-        let mut context = get_context(false);
-        let contract_account = accounts(0);
-        
-        context.account_balance(1000)
-            .predecessor_account_id(contract_account.clone())
-            .attached_deposit(1000)
-            .signer_account_id(contract_account.clone());
-        testing_env!(context.build());
+        let mut contract = Contract::new(CONTRACT_ACCOUNT.parse().unwrap());
 
-        let mut context = get_context(false);
-        let buyer_1 = accounts(1);
-        
-        context.account_balance(1000)
-            .predecessor_account_id(buyer_1.clone())
-            .attached_deposit(1000)
-            .signer_account_id(buyer_1.clone());
-        testing_env!(context.build());
-
-        let mut contract = Contract::new(contract_account.clone());
-        let amount_product = U128(2);
-        let price_per_product = U128(500);
-        let quality = None;
-        let is_sell = false;
+        set_context("buy_account", 1000, 1000);
 
         contract.add_commnand("command_1".to_owned(), "Iphone_14".to_owned()
-                             , is_sell, amount_product, price_per_product, quality);
+                             , false, U128(2), U128(500), None);
 
         let test_command = contract.get_command("command_1".to_owned());
 
@@ -281,46 +270,68 @@ mod test {
         assert_eq!(test_command.get_is_sell(), false);
         assert_eq!(test_command.get_amount_product(), U128(2));
         assert_eq!(test_command.get_price_per_product(), U128(500));
-        assert_eq!(test_command.get_command_owner_id(), buyer_1);
+        assert_eq!(test_command.get_command_owner_id(), "buy_account".parse().unwrap());
     }
+
     #[test]
-    #[should_panic(expected = "BUY COMMAND HAS NOT ENGOUGH DEPOSIT")]
-    fn test_add_buy_command_with_lack_attached_deposit() {
-        let mut context = get_context(false);
-        let contract_account = accounts(0);
-        
-        context.account_balance(1000)
-            .predecessor_account_id(contract_account.clone())
-            .attached_deposit(1000)
-            .signer_account_id(contract_account.clone());
-        testing_env!(context.build());
+    fn test_add_sell_command() {
+        let mut contract = Contract::new(CONTRACT_ACCOUNT.parse().unwrap());
 
-        let mut context = get_context(false);
-        let buyer_2 = accounts(1);
-        
-        context.account_balance(999)
-            .predecessor_account_id(buyer_2.clone())
-            .attached_deposit(999)
-            .signer_account_id(buyer_2.clone());
-        testing_env!(context.build());
+        set_context("sell_account", 0, 0);
 
-        let mut contract = Contract::new(contract_account.clone());
-        let amount_product = U128(2);
-        let price_per_product = U128(500);
-        let quality = None;
-        let is_sell = false;
+        contract.add_commnand("command_1".to_owned(), "Iphone_14".to_owned()
+                             , true, U128(2), U128(500), None);
 
-        contract.add_commnand("command_2".to_owned(), "Iphone_14".to_owned()
-                            , is_sell, amount_product, price_per_product, quality);
-
-        let test_command = contract.get_command("command_2".to_owned());
+        let test_command = contract.get_command("command_1".to_owned());
 
         //test
-        assert_eq!(test_command.get_command_id(), "command_2".to_owned());
+        assert_eq!(test_command.get_command_id(), "command_1".to_owned());
+        assert_eq!(test_command.get_name_product(), "Iphone_14".to_owned());
+        assert_eq!(test_command.get_is_sell(), true);
+        assert_eq!(test_command.get_amount_product(), U128(2));
+        assert_eq!(test_command.get_price_per_product(), U128(500));
+        assert_eq!(test_command.get_command_owner_id(), "sell_account".parse().unwrap());
+    }
+
+    #[test]
+    #[should_panic(expected = "BUY COMMAND HAS NOT ENGOUGH DEPOSIT.IT NEED AT LEAST 1000.YOU HAVE 999")]
+    fn test_add_buy_command_with_lack_attached_deposit() {
+        let mut contract = Contract::new(CONTRACT_ACCOUNT.parse().unwrap());
+
+        set_context("buy_account", 1000, 999);
+
+        contract.add_commnand("command_1".to_owned(), "Iphone_14".to_owned()
+                             , false, U128(2), U128(500), None);
+
+        let test_command = contract.get_command("command_1".to_owned());
+
+        //test
+        assert_eq!(test_command.get_command_id(), "command_1".to_owned());
         assert_eq!(test_command.get_name_product(), "Iphone_14".to_owned());
         assert_eq!(test_command.get_is_sell(), false);
         assert_eq!(test_command.get_amount_product(), U128(2));
         assert_eq!(test_command.get_price_per_product(), U128(500));
-        assert_eq!(test_command.get_command_owner_id(), buyer_2);
+        assert_eq!(test_command.get_command_owner_id(), "buy_account".parse().unwrap());
+    }
+
+    #[test]
+    #[should_panic(expected = "SELL COMMAND NOT USE DEPOSIT")]
+    fn test_add_sell_command_with_exceed_attached_deposit() {
+        let mut contract = Contract::new(CONTRACT_ACCOUNT.parse().unwrap());
+
+        set_context("sell_account", 1000, 1000);
+
+        contract.add_commnand("command_1".to_owned(), "Iphone_14".to_owned()
+                             , true, U128(2), U128(500), None);
+
+        let test_command = contract.get_command("command_1".to_owned());
+
+        //test
+        assert_eq!(test_command.get_command_id(), "command_1".to_owned());
+        assert_eq!(test_command.get_name_product(), "Iphone_14".to_owned());
+        assert_eq!(test_command.get_is_sell(), true);
+        assert_eq!(test_command.get_amount_product(), U128(2));
+        assert_eq!(test_command.get_price_per_product(), U128(500));
+        assert_eq!(test_command.get_command_owner_id(), "sell_account".parse().unwrap());
     }
 }
