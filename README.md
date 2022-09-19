@@ -1,2 +1,2 @@
-# Blockchain_Hackathon_Five_Musketeers
-This is a project for Blockchain Hackathon
+# Blockchain_in_Manufacturing
+This is a project for Blockchain Hackathon in Vietnam Blockchain Summer School
