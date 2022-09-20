@@ -52,7 +52,7 @@ impl Contract {
     }
 
     #[payable]
-    pub fn add_commnand(&mut self, command_id: CommandId, name_product: NameProduct, is_sell: bool, 
+    pub fn add_command(&mut self, command_id: CommandId, name_product: NameProduct, is_sell: bool, 
         amount_product: U128, price_per_product: U128, quality: Option<Quality>) {
         let mut amount_product_mut = amount_product;
         if is_sell {
@@ -95,8 +95,6 @@ impl Contract {
                 }
                 None => {},
             }
-            
-            // panic!("amount_seller_reiceive {}",amount_seller_reiceive);
             if amount_seller_reiceive != 0 {
                 Promise::new(signer_account_id())
                 .transfer(amount_seller_reiceive);
@@ -259,7 +257,7 @@ mod test {
 
         set_context("buy_account", 1000, 1000);
 
-        contract.add_commnand("command_1".to_owned(), "Iphone_14".to_owned()
+        contract.add_command("command_1".to_owned(), "Iphone_14".to_owned()
                              , false, U128(2), U128(500), None);
 
         let test_command = contract.get_command("command_1".to_owned());
@@ -279,7 +277,7 @@ mod test {
 
         set_context("sell_account", 0, 0);
 
-        contract.add_commnand("command_1".to_owned(), "Iphone_14".to_owned()
+        contract.add_command("command_1".to_owned(), "Iphone_14".to_owned()
                              , true, U128(2), U128(500), None);
 
         let test_command = contract.get_command("command_1".to_owned());
@@ -300,7 +298,7 @@ mod test {
 
         set_context("buy_account", 1000, 999);
 
-        contract.add_commnand("command_1".to_owned(), "Iphone_14".to_owned()
+        contract.add_command("command_1".to_owned(), "Iphone_14".to_owned()
                              , false, U128(2), U128(500), None);
 
         let test_command = contract.get_command("command_1".to_owned());
@@ -321,7 +319,7 @@ mod test {
 
         set_context("sell_account", 1000, 1000);
 
-        contract.add_commnand("command_1".to_owned(), "Iphone_14".to_owned()
+        contract.add_command("command_1".to_owned(), "Iphone_14".to_owned()
                              , true, U128(2), U128(500), None);
 
         let test_command = contract.get_command("command_1".to_owned());
