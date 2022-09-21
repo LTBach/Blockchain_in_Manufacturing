@@ -49,7 +49,7 @@ impl Command {
     pub fn get_quality(&self) -> Option<Quality> {
         self.quality.clone()
     }
-    pub fn get_key_for_map(&self) -> KeyForTree {
+    pub fn get_key_for_tree(&self) -> KeyForTree {
         KeyForTree::new(self.price_per_product,self.command_id.clone())
     }
     pub fn get_command_owner_id(&self) -> AccountId {

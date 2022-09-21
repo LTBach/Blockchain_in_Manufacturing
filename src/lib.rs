@@ -55,8 +55,8 @@ impl Contract {
             ordered_buy: LookupMap::new(StorageKey::OrderedBuyKey),
         }
     }
-    #[payable]
 
+    #[payable]
     pub fn add_command(&mut self, command_id: CommandId, name_product: NameProduct, is_sell: bool, 
         amount_product: U128, price_per_product: U128, quality: Option<Quality>) {
         let mut amount_product_mut = amount_product;
@@ -77,7 +77,7 @@ impl Contract {
                                                                  amount_product_mut.0 * price_per_product_highest_buy.0;
                                         highest_buy.set_amount_product(U128(amount_product_highest_buy.0 - amount_product_mut.0));
                                         amount_product_mut = U128(0);
-                                        treemap.insert(&highest_buy.get_key_for_map(),&highest_buy);
+                                        treemap.insert(&highest_buy.get_key_for_tree(),&highest_buy);
                                         self.ordered_buy.insert(&name_product, &treemap);
                                         self.commands.insert(&highest_buy.get_command_id(), &highest_buy);
                                         break;
@@ -85,7 +85,7 @@ impl Contract {
                                         amount_seller_reiceive = amount_seller_reiceive + 
                                                                  amount_product_highest_buy.0 * price_per_product_highest_buy.0;
                                         amount_product_mut = U128(amount_product_mut.0 - amount_product_highest_buy.0);
-                                        treemap.remove(&highest_buy.get_key_for_map());
+                                        treemap.remove(&highest_buy.get_key_for_tree());
                                         self.ordered_sell.insert(&name_product, &treemap);
                                         self.commands.remove(&highest_buy.get_command_id());
                                     }
@@ -143,7 +143,7 @@ impl Contract {
                                         .transfer(amount_product_mut.0 * price_per_product_lowest_sell.0);
                                         lowest_sell.set_amount_product(U128(amount_product_lowest_sell.0 - amount_product_mut.0));
                                         amount_product_mut = U128(0);
-                                        treemap.insert(&lowest_sell.get_key_for_map(),&lowest_sell);
+                                        treemap.insert(&lowest_sell.get_key_for_tree(),&lowest_sell);
                                         self.ordered_sell.insert(&name_product, &treemap);
                                         self.commands.insert(&lowest_sell.get_command_id(), &lowest_sell);
                                         break;
@@ -153,7 +153,7 @@ impl Contract {
                                         Promise::new(lowest_sell.get_command_owner_id())
                                         .transfer(amount_product_lowest_sell.0 * price_per_product_lowest_sell.0);
                                         amount_product_mut = U128(amount_product_mut.0 - amount_product_lowest_sell.0);
-                                        treemap.remove(&lowest_sell.get_key_for_map());
+                                        treemap.remove(&lowest_sell.get_key_for_tree());
                                         self.ordered_buy.insert(&name_product, &treemap);
                                         self.commands.remove(&lowest_sell.get_command_id());
                                     }
@@ -191,33 +191,27 @@ impl Contract {
         }
     }
     pub fn get_product_order_way(&self, name_product: NameProduct, is_sell: bool) -> Vec<Command> {
+        let mut ans = Vec::new();
         if is_sell {
             match self.ordered_sell.get(&name_product) {
                 Some(treemap) => {
-                    let mut ans = Vec::new();
                     for (_a, b) in treemap.iter() {
                         ans.push(b);
                     }
-                    ans
                 },
-                None => {
-                    Vec::new()
-                }
+                None => {}
             }
         } else {
             match self.ordered_buy.get(&name_product) {
                 Some(treemap) => {
-                    let mut ans = Vec::new();
                     for (_a, b) in treemap.iter_rev() {
                         ans.push(b);
                     }
-                    ans
                 },
-                None => {
-                    Vec::new()
-                }
+                None => {}
             }
         }
+        ans
     }
     pub fn remove_command(&mut self, command_id: CommandId) {
         let command = self.commands.get(&command_id).expect("ERROR COMMAND NOT FOUND");
@@ -225,7 +219,14 @@ impl Contract {
         if !command.get_is_sell() {
             Promise::new(env::signer_account_id())
             .transfer(command.get_amount_product().0 * command.get_price_per_product().0);
-        }
+            let mut treemap = self.ordered_buy.get(&command.get_name_product()).expect("CAN NOT BUG");
+            treemap.remove(&command.get_key_for_tree());
+            self.ordered_buy.insert(&command.get_name_product(), &treemap);
+        } else {
+            let mut treemap = self.ordered_sell.get(&command.get_name_product()).expect("CAN NOT BUG");
+            treemap.remove(&command.get_key_for_tree());
+            self.ordered_sell.insert(&command.get_name_product(), &treemap);
+        } 
         self.commands.remove(&command_id);
     }
     pub fn get_command(&self, command_id: CommandId) -> Command{
