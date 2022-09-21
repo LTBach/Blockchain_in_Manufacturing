@@ -21,8 +21,8 @@ pub const TRANSFER_GAS: Gas = Gas(10_000_000_000_000);
 struct Contract {
     owner_id: AccountId,
     commands: LookupMap<CommandId, Command>,
-    orderd_sell: LookupMap<NameProduct, TreeMap<KeyForTree, Command>>,
-    orderd_buy: LookupMap<NameProduct, TreeMap<KeyForTree, Command>>,
+    ordered_sell: LookupMap<NameProduct, TreeMap<KeyForTree, Command>>,
+    ordered_buy: LookupMap<NameProduct, TreeMap<KeyForTree, Command>>,
     number_of_item_in_sell: i64,
     number_of_item_in_buy: i64,
 }
@@ -41,24 +41,25 @@ enum StorageKey{
 impl Contract {
     #[init]
     pub fn new(owner_id: AccountId) -> Self {
+        // assert_eq!(env::signer_account_id(), owner_id, "WRONG ACCOUNT");
         Self {
             owner_id,
             commands: LookupMap::new(StorageKey::CommandKey),
-            orderd_sell: LookupMap::new(StorageKey::OrderedSellKey),
-            orderd_buy: LookupMap::new(StorageKey::OrderedBuyKey),
+            ordered_sell: LookupMap::new(StorageKey::OrderedSellKey),
+            ordered_buy: LookupMap::new(StorageKey::OrderedBuyKey),
             number_of_item_in_sell: 0,
             number_of_item_in_buy: 0,
         }
     }
-
     #[payable]
+
     pub fn add_command(&mut self, command_id: CommandId, name_product: NameProduct, is_sell: bool, 
         amount_product: U128, price_per_product: U128, quality: Option<Quality>) {
         let mut amount_product_mut = amount_product;
         if is_sell {
             assert!(env::attached_deposit() == 0, "SELL COMMAND NOT USE DEPOSIT");
             let mut amount_seller_reiceive: u128 = 0;
-            match self.orderd_buy.get(&name_product.clone()) {
+            match self.ordered_buy.get(&name_product.clone()) {
                 Some(mut treemap) => {
                     while amount_product_mut.0 != 0 {
                         match treemap.max() {
@@ -74,7 +75,7 @@ impl Contract {
                                         amount_product_mut = U128(0);
                                         self.commands.insert(&highest_buy.get_command_id(), &highest_buy);
                                         treemap.insert(&highest_buy.get_key_for_map(),&highest_buy);
-                                        self.orderd_buy.insert(&name_product, &treemap);
+                                        self.ordered_buy.insert(&name_product, &treemap);
                                         break;
                                     } else {
                                         amount_seller_reiceive = amount_seller_reiceive + 
@@ -103,7 +104,7 @@ impl Contract {
                 let command = Command::new(command_id.clone(), name_product.clone(), is_sell,
                     amount_product_mut, price_per_product, quality);
                 self.commands.insert(&command_id, &command);
-                match self.orderd_sell.get(&name_product) {
+                match self.ordered_sell.get(&name_product) {
                     Some(mut treemap) => {
                         treemap.insert(&KeyForTree::new(price_per_product, command_id), &command);
                     }
@@ -111,7 +112,7 @@ impl Contract {
                         let mut treemap = TreeMap::new(StorageKey::TreeSellKey(self.number_of_item_in_sell));
                         self.number_of_item_in_sell = self.number_of_item_in_sell + 1;
                         treemap.insert(&KeyForTree::new(price_per_product, command_id), &command);
-                        self.orderd_sell.insert(&name_product, &treemap);
+                        self.ordered_sell.insert(&name_product, &treemap);
                     }
                 }
             }
@@ -122,7 +123,7 @@ impl Contract {
             if env::attached_deposit() > price_per_product.0 * amount_product.0 {
                 Promise::new(signer_account_id()).transfer(env::attached_deposit() - price_per_product.0 * amount_product.0);
             }
-            match self.orderd_sell.get(&name_product) {
+            match self.ordered_sell.get(&name_product) {
                 Some(mut treemap) => {
                     while amount_product_mut.0 != 0 {
                         match treemap.min() {
@@ -140,7 +141,7 @@ impl Contract {
                                         amount_product_mut = U128(0);
                                         self.commands.insert(&lowest_sell.get_command_id(), &lowest_sell);
                                         treemap.insert(&lowest_sell.get_key_for_map(),&lowest_sell);
-                                        self.orderd_sell.insert(&name_product, &treemap);
+                                        self.ordered_sell.insert(&name_product, &treemap);
                                         break;
                                     } else {
                                         amount_buyer_exceed = amount_buyer_exceed +
@@ -171,7 +172,7 @@ impl Contract {
                 let command = Command::new(command_id.clone(), name_product.clone(), is_sell,
                     amount_product_mut, price_per_product, quality);
                 self.commands.insert(&command_id, &command);
-                match self.orderd_buy.get(&name_product) {
+                match self.ordered_buy.get(&name_product) {
                     Some(mut treemap) => {
                         treemap.insert(&KeyForTree::new(price_per_product, command_id), &command);
                     }
@@ -179,16 +180,15 @@ impl Contract {
                         let mut treemap = TreeMap::new(StorageKey::TreeBuyKey(self.number_of_item_in_buy));
                         self.number_of_item_in_buy = self.number_of_item_in_buy + 1;
                         treemap.insert(&KeyForTree::new(price_per_product, command_id), &command);
-                        self.orderd_buy.insert(&name_product, &treemap);
+                        self.ordered_buy.insert(&name_product, &treemap);
                     }
                 }
             }
         }
     }
-
     pub fn get_product_order_way(&self, name_product: NameProduct, is_sell: bool) -> Vec<Command> {
         if is_sell {
-            match self.orderd_sell.get(&name_product) {
+            match self.ordered_sell.get(&name_product) {
                 Some(treemap) => {
                     let mut ans = Vec::new();
                     for (_a, b) in treemap.iter() {
@@ -201,7 +201,7 @@ impl Contract {
                 }
             }
         } else {
-            match self.orderd_buy.get(&name_product) {
+            match self.ordered_buy.get(&name_product) {
                 Some(treemap) => {
                     let mut ans = Vec::new();
                     for (_a, b) in treemap.iter_rev() {
@@ -215,7 +215,6 @@ impl Contract {
             }
         }
     }
-
     pub fn remove_command(&mut self, command_id: CommandId) {
         let command = self.commands.get(&command_id).expect("ERROR COMMAND NOT FOUND");
         assert_eq!(env::signer_account_id(), command.get_command_owner_id(), "ERROR YOU ARE NOT OWNER OF COMMAND");
@@ -228,9 +227,9 @@ impl Contract {
     pub fn get_command(&self, command_id: CommandId) -> Command{
         self.commands.get(&command_id).expect("ERROR COMMAND NOT FOUND")
     }
+    pub fn none(&self) {
+    }
 }
-
-
 #[allow(unused_imports)]
 #[cfg(all(test, not(target_arch = "wasm32")))]
 mod test {
@@ -239,7 +238,7 @@ mod test {
     use near_sdk::test_utils::{VMContextBuilder, accounts};
     use near_sdk::{testing_env, MockedBlockchain, Balance};
 
-    const CONTRACT_ACCOUNT: &str = "contract_account_id";
+    const CONTRACT_ACCOUNT: &str = "manufacturing.uitdev.testnet";
     
     fn set_context(predecessor: &str, balance: Balance, deposit: Balance) {
         let mut builder = VMContextBuilder::new();
