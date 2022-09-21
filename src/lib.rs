@@ -1,4 +1,6 @@
 use std::cmp::Ordering;
+use std::collections::hash_map::DefaultHasher;
+use std::hash::{Hash, Hasher};
 
 use near_sdk::borsh::{self, BorshDeserialize, BorshSerialize};
 use near_sdk::env::signer_account_id;
@@ -16,6 +18,12 @@ pub type CommandId = String;
 pub type NameProduct = String;
 pub const TRANSFER_GAS: Gas = Gas(10_000_000_000_000);
 
+fn calculate_hash<T: Hash>(t: &T) -> u64 {
+    let mut s = DefaultHasher::new();
+    t.hash(&mut s);
+    s.finish()
+}
+
 #[derive(BorshDeserialize, BorshSerialize, PanicOnDefault)]
 #[near_bindgen]
 struct Contract {
@@ -23,8 +31,6 @@ struct Contract {
     commands: LookupMap<CommandId, Command>,
     ordered_sell: LookupMap<NameProduct, TreeMap<KeyForTree, Command>>,
     ordered_buy: LookupMap<NameProduct, TreeMap<KeyForTree, Command>>,
-    number_of_item_in_sell: i64,
-    number_of_item_in_buy: i64,
 }
 
 #[derive(BorshDeserialize, BorshSerialize, BorshStorageKey)]
@@ -32,8 +38,8 @@ enum StorageKey{
     CommandKey,
     OrderedSellKey,
     OrderedBuyKey,
-    TreeBuyKey(i64),
-    TreeSellKey(i64),
+    TreeBuyKey(u64),
+    TreeSellKey(u64),
 }
 
 #[near_bindgen]
@@ -47,8 +53,6 @@ impl Contract {
             commands: LookupMap::new(StorageKey::CommandKey),
             ordered_sell: LookupMap::new(StorageKey::OrderedSellKey),
             ordered_buy: LookupMap::new(StorageKey::OrderedBuyKey),
-            number_of_item_in_sell: 0,
-            number_of_item_in_buy: 0,
         }
     }
     #[payable]
@@ -73,15 +77,16 @@ impl Contract {
                                                                  amount_product_mut.0 * price_per_product_highest_buy.0;
                                         highest_buy.set_amount_product(U128(amount_product_highest_buy.0 - amount_product_mut.0));
                                         amount_product_mut = U128(0);
-                                        self.commands.insert(&highest_buy.get_command_id(), &highest_buy);
                                         treemap.insert(&highest_buy.get_key_for_map(),&highest_buy);
                                         self.ordered_buy.insert(&name_product, &treemap);
+                                        self.commands.insert(&highest_buy.get_command_id(), &highest_buy);
                                         break;
                                     } else {
                                         amount_seller_reiceive = amount_seller_reiceive + 
                                                                  amount_product_highest_buy.0 * price_per_product_highest_buy.0;
                                         amount_product_mut = U128(amount_product_mut.0 - amount_product_highest_buy.0);
                                         treemap.remove(&highest_buy.get_key_for_map());
+                                        self.ordered_sell.insert(&name_product, &treemap);
                                         self.commands.remove(&highest_buy.get_command_id());
                                     }
                                 } else {
@@ -109,8 +114,7 @@ impl Contract {
                         treemap.insert(&KeyForTree::new(price_per_product, command_id), &command);
                     }
                     None => {
-                        let mut treemap = TreeMap::new(StorageKey::TreeSellKey(self.number_of_item_in_sell));
-                        self.number_of_item_in_sell = self.number_of_item_in_sell + 1;
+                        let mut treemap = TreeMap::new(StorageKey::TreeSellKey(calculate_hash(&name_product)));
                         treemap.insert(&KeyForTree::new(price_per_product, command_id), &command);
                         self.ordered_sell.insert(&name_product, &treemap);
                     }
@@ -129,9 +133,9 @@ impl Contract {
                         match treemap.min() {
                             Some(lowest_sell_key_for_map) => {
                                 let mut lowest_sell = treemap.get(&lowest_sell_key_for_map).expect("CAN NOT BUG 2");
-                                if lowest_sell.get_price_per_product() <= price_per_product {
+                                let price_per_product_lowest_sell = lowest_sell.get_price_per_product();
+                                if price_per_product_lowest_sell <= price_per_product {
                                     let amount_product_lowest_sell = lowest_sell.get_amount_product();
-                                    let price_per_product_lowest_sell = lowest_sell.get_price_per_product();
                                     if amount_product_mut < amount_product_lowest_sell {
                                         amount_buyer_exceed = amount_buyer_exceed +
                                                               amount_product_mut.0 * (price_per_product.0 - price_per_product_lowest_sell.0);
@@ -139,9 +143,9 @@ impl Contract {
                                         .transfer(amount_product_mut.0 * price_per_product_lowest_sell.0);
                                         lowest_sell.set_amount_product(U128(amount_product_lowest_sell.0 - amount_product_mut.0));
                                         amount_product_mut = U128(0);
-                                        self.commands.insert(&lowest_sell.get_command_id(), &lowest_sell);
                                         treemap.insert(&lowest_sell.get_key_for_map(),&lowest_sell);
                                         self.ordered_sell.insert(&name_product, &treemap);
+                                        self.commands.insert(&lowest_sell.get_command_id(), &lowest_sell);
                                         break;
                                     } else {
                                         amount_buyer_exceed = amount_buyer_exceed +
@@ -150,6 +154,7 @@ impl Contract {
                                         .transfer(amount_product_lowest_sell.0 * price_per_product_lowest_sell.0);
                                         amount_product_mut = U128(amount_product_mut.0 - amount_product_lowest_sell.0);
                                         treemap.remove(&lowest_sell.get_key_for_map());
+                                        self.ordered_buy.insert(&name_product, &treemap);
                                         self.commands.remove(&lowest_sell.get_command_id());
                                     }
                                 } else {
@@ -177,8 +182,7 @@ impl Contract {
                         treemap.insert(&KeyForTree::new(price_per_product, command_id), &command);
                     }
                     None => {
-                        let mut treemap = TreeMap::new(StorageKey::TreeBuyKey(self.number_of_item_in_buy));
-                        self.number_of_item_in_buy = self.number_of_item_in_buy + 1;
+                        let mut treemap = TreeMap::new(StorageKey::TreeBuyKey(calculate_hash(&name_product)));
                         treemap.insert(&KeyForTree::new(price_per_product, command_id), &command);
                         self.ordered_buy.insert(&name_product, &treemap);
                     }
@@ -226,8 +230,6 @@ impl Contract {
     }
     pub fn get_command(&self, command_id: CommandId) -> Command{
         self.commands.get(&command_id).expect("ERROR COMMAND NOT FOUND")
-    }
-    pub fn none(&self) {
     }
 }
 #[allow(unused_imports)]
