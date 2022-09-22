@@ -52,8 +52,8 @@ impl Contract {
 
     #[payable]
     pub fn add_command(&mut self, command_id: CommandId, name_product: NameProduct, is_sell: bool, 
-        amount_product: u128, price_per_product: Balance, quality: Option<Quality>) {
-        let mut amount_product_mut = amount_product;
+        amount_product: U128, price_per_product: U128, quality: Option<Quality>) {
+        let mut amount_product_mut = amount_product.0;
         if is_sell {
             assert!(env::attached_deposit() == 0, "SELL COMMAND NOT USE DEPOSIT");
             let mut amount_seller_reiceive: u128 = 0;
@@ -64,7 +64,7 @@ impl Contract {
                             Some(highest_buy_key_for_map) => {
                                 let mut highest_buy = treemap.get(&highest_buy_key_for_map).expect("CAN NOT BUG 1");
                                 let price_per_product_highest_buy = highest_buy.get_price_per_product();
-                                if price_per_product_highest_buy >= price_per_product {
+                                if price_per_product_highest_buy >= price_per_product.0 {
                                     let amount_product_highest_buy = highest_buy.get_amount_product();
                                     if amount_product_mut < amount_product_highest_buy {
                                         amount_seller_reiceive = amount_seller_reiceive + 
@@ -101,26 +101,26 @@ impl Contract {
             }
             if amount_product_mut != 0 {
                 let command = Command::new(command_id.clone(), name_product.clone(), is_sell,
-                    amount_product_mut, price_per_product, quality);
+                    amount_product_mut, price_per_product.0, quality);
                 self.commands.insert(&command_id, &command);
                 match self.ordered_sell.get(&name_product) {
                     Some(mut treemap) => {
-                        treemap.insert(&KeyForTree::new(price_per_product, command_id), &command);
+                        treemap.insert(&KeyForTree::new(price_per_product.0, command_id), &command);
                     }
                     None => {
                         let mut treemap = TreeMap::new(StorageKey::TreeKey(self.counting_num));
-                        treemap.insert(&KeyForTree::new(price_per_product, command_id), &command);
+                        treemap.insert(&KeyForTree::new(price_per_product.0, command_id), &command);
                         self.counting_num = self.counting_num + 1;
                         self.ordered_sell.insert(&name_product, &treemap);
                     }
                 }
             }
         } else {
-            assert!(env::attached_deposit() >= price_per_product * amount_product,
-            "BUY COMMAND HAS NOT ENGOUGH DEPOSIT.IT NEED AT LEAST {}.YOU HAVE {}",price_per_product * amount_product,env::attached_deposit());
+            assert!(env::attached_deposit() >= price_per_product.0 * amount_product.0,
+            "BUY COMMAND HAS NOT ENGOUGH DEPOSIT.IT NEED AT LEAST {}.YOU HAVE {}",price_per_product.0 * amount_product.0,env::attached_deposit());
             let mut amount_buyer_exceed: u128 = 0;
-            if env::attached_deposit() > price_per_product * amount_product {
-                Promise::new(signer_account_id()).transfer(env::attached_deposit() - price_per_product * amount_product);
+            if env::attached_deposit() > price_per_product.0 * amount_product.0 {
+                Promise::new(signer_account_id()).transfer(env::attached_deposit() - price_per_product.0 * amount_product.0);
             }
             match self.ordered_sell.get(&name_product) {
                 Some(mut treemap) => {
@@ -129,11 +129,11 @@ impl Contract {
                             Some(lowest_sell_key_for_map) => {
                                 let mut lowest_sell = treemap.get(&lowest_sell_key_for_map).expect("CAN NOT BUG 2");
                                 let price_per_product_lowest_sell = lowest_sell.get_price_per_product();
-                                if price_per_product_lowest_sell <= price_per_product {
+                                if price_per_product_lowest_sell <= price_per_product.0 {
                                     let amount_product_lowest_sell = lowest_sell.get_amount_product();
                                     if amount_product_mut < amount_product_lowest_sell {
                                         amount_buyer_exceed = amount_buyer_exceed +
-                                                              amount_product_mut * (price_per_product - price_per_product_lowest_sell);
+                                                              amount_product_mut * (price_per_product.0 - price_per_product_lowest_sell);
                                         Promise::new(lowest_sell.get_command_owner_id())
                                         .transfer(amount_product_mut * price_per_product_lowest_sell);
                                         lowest_sell.set_amount_product(amount_product_lowest_sell - amount_product_mut);
@@ -144,7 +144,7 @@ impl Contract {
                                         break;
                                     } else {
                                         amount_buyer_exceed = amount_buyer_exceed +
-                                                              amount_product_lowest_sell * (price_per_product - price_per_product_lowest_sell);
+                                                              amount_product_lowest_sell * (price_per_product.0 - price_per_product_lowest_sell);
                                         Promise::new(lowest_sell.get_command_owner_id())
                                         .transfer(amount_product_lowest_sell * price_per_product_lowest_sell);
                                         amount_product_mut = amount_product_mut - amount_product_lowest_sell;
@@ -170,15 +170,15 @@ impl Contract {
             }
             if amount_product_mut != 0 {
                 let command = Command::new(command_id.clone(), name_product.clone(), is_sell,
-                    amount_product_mut, price_per_product, quality);
+                    amount_product_mut, price_per_product.0, quality);
                 self.commands.insert(&command_id, &command);
                 match self.ordered_buy.get(&name_product) {
                     Some(mut treemap) => {
-                        treemap.insert(&KeyForTree::new(price_per_product, command_id), &command);
+                        treemap.insert(&KeyForTree::new(price_per_product.0, command_id), &command);
                     }
                     None => {
                         let mut treemap = TreeMap::new(StorageKey::TreeKey(self.counting_num));
-                        treemap.insert(&KeyForTree::new(price_per_product, command_id), &command);
+                        treemap.insert(&KeyForTree::new(price_per_product.0, command_id), &command);
                         self.counting_num = self.counting_num + 1;
                         self.ordered_buy.insert(&name_product, &treemap);
                     }
@@ -256,7 +256,7 @@ mod test {
         set_context("buy_account", 1000, 1000);
 
         contract.add_command("command_1".to_owned(), "Iphone_14".to_owned()
-                             , false, 2, 500, None);
+                             , false, U128(2), U128(500), None);
 
         let test_command = contract.get_command("command_1".to_owned());
 
@@ -276,7 +276,7 @@ mod test {
         set_context("sell_account", 0, 0);
 
         contract.add_command("command_1".to_owned(), "Iphone_14".to_owned()
-                             , true, 2, 500, None);
+                             , true, U128(2), U128(500), None);
 
         let test_command = contract.get_command("command_1".to_owned());
 
@@ -297,7 +297,7 @@ mod test {
         set_context("buy_account", 1000, 999);
 
         contract.add_command("command_1".to_owned(), "Iphone_14".to_owned()
-                             , false, 2, 500, None);
+                             , false, U128(2), U128(500), None);
 
         let test_command = contract.get_command("command_1".to_owned());
 
@@ -318,7 +318,7 @@ mod test {
         set_context("sell_account", 1000, 1000);
 
         contract.add_command("command_1".to_owned(), "Iphone_14".to_owned()
-                             , true, 2, 500, None);
+                             , true, U128(2), U128(500), None);
 
         let test_command = contract.get_command("command_1".to_owned());
 
