@@ -3,17 +3,17 @@ use crate::*;
 #[derive(BorshDeserialize, BorshSerialize, Deserialize, Serialize,Clone)]
 #[serde(crate = "near_sdk::serde")]
 pub struct KeyForTree {
-    price_per_product: U128,
+    price_per_product: Balance,
     command_id: CommandId,
 }
 impl KeyForTree {
-    pub fn new(price_per_product: U128, command_id: CommandId) -> Self {
+    pub fn new(price_per_product: Balance, command_id: CommandId) -> Self {
         Self {
             price_per_product,
             command_id,
         }
     }
-    pub fn get_price_per_product(&self) -> U128{
+    pub fn get_price_per_product(&self) -> Balance{
         self.price_per_product
     }
     pub fn get_command_id(&self) -> CommandId {
