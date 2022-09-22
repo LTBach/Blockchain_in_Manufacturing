@@ -2,9 +2,10 @@ use std::cmp::Ordering;
 
 use near_sdk::borsh::{self, BorshDeserialize, BorshSerialize};
 use near_sdk::env::signer_account_id;
+#[allow(unused_imports)]
 use near_sdk::json_types::U128;
 use near_sdk::serde::{Deserialize, Serialize};
-use near_sdk::{env, AccountId, near_bindgen, PanicOnDefault, Promise, Timestamp, BorshStorageKey, Gas};
+use near_sdk::{env, AccountId, near_bindgen, PanicOnDefault, Promise, Timestamp, BorshStorageKey, Gas, Balance};
 use near_sdk::collections::{LookupMap, TreeMap};
 
 mod command;
@@ -51,33 +52,33 @@ impl Contract {
 
     #[payable]
     pub fn add_command(&mut self, command_id: CommandId, name_product: NameProduct, is_sell: bool, 
-        amount_product: U128, price_per_product: U128, quality: Option<Quality>) {
+        amount_product: u128, price_per_product: Balance, quality: Option<Quality>) {
         let mut amount_product_mut = amount_product;
         if is_sell {
             assert!(env::attached_deposit() == 0, "SELL COMMAND NOT USE DEPOSIT");
             let mut amount_seller_reiceive: u128 = 0;
             match self.ordered_buy.get(&name_product.clone()) {
                 Some(mut treemap) => {
-                    while amount_product_mut.0 != 0 {
+                    while amount_product_mut != 0 {
                         match treemap.max() {
                             Some(highest_buy_key_for_map) => {
                                 let mut highest_buy = treemap.get(&highest_buy_key_for_map).expect("CAN NOT BUG 1");
-                                if highest_buy.get_price_per_product() >= price_per_product {
+                                let price_per_product_highest_buy = highest_buy.get_price_per_product();
+                                if price_per_product_highest_buy >= price_per_product {
                                     let amount_product_highest_buy = highest_buy.get_amount_product();
-                                    let price_per_product_highest_buy = highest_buy.get_price_per_product();
                                     if amount_product_mut < amount_product_highest_buy {
                                         amount_seller_reiceive = amount_seller_reiceive + 
-                                                                 amount_product_mut.0 * price_per_product_highest_buy.0;
-                                        highest_buy.set_amount_product(U128(amount_product_highest_buy.0 - amount_product_mut.0));
-                                        amount_product_mut = U128(0);
+                                                                 amount_product_mut * price_per_product_highest_buy;
+                                        highest_buy.set_amount_product(amount_product_highest_buy - amount_product_mut);
+                                        amount_product_mut = 0;
                                         treemap.insert(&highest_buy.get_key_for_tree(),&highest_buy);
                                         self.ordered_buy.insert(&name_product, &treemap);
                                         self.commands.insert(&highest_buy.get_command_id(), &highest_buy);
                                         break;
                                     } else {
                                         amount_seller_reiceive = amount_seller_reiceive + 
-                                                                 amount_product_highest_buy.0 * price_per_product_highest_buy.0;
-                                        amount_product_mut = U128(amount_product_mut.0 - amount_product_highest_buy.0);
+                                                                 amount_product_highest_buy * price_per_product_highest_buy;
+                                        amount_product_mut = amount_product_mut - amount_product_highest_buy;
                                         treemap.remove(&highest_buy.get_key_for_tree());
                                         self.ordered_sell.insert(&name_product, &treemap);
                                         self.commands.remove(&highest_buy.get_command_id());
@@ -98,7 +99,7 @@ impl Contract {
                 Promise::new(signer_account_id())
                 .transfer(amount_seller_reiceive);
             }
-            if amount_product_mut.0 != 0 {
+            if amount_product_mut != 0 {
                 let command = Command::new(command_id.clone(), name_product.clone(), is_sell,
                     amount_product_mut, price_per_product, quality);
                 self.commands.insert(&command_id, &command);
@@ -115,15 +116,15 @@ impl Contract {
                 }
             }
         } else {
-            assert!(env::attached_deposit() >= price_per_product.0 * amount_product.0,
-            "BUY COMMAND HAS NOT ENGOUGH DEPOSIT.IT NEED AT LEAST {}.YOU HAVE {}",price_per_product.0 * amount_product.0,env::attached_deposit());
+            assert!(env::attached_deposit() >= price_per_product * amount_product,
+            "BUY COMMAND HAS NOT ENGOUGH DEPOSIT.IT NEED AT LEAST {}.YOU HAVE {}",price_per_product * amount_product,env::attached_deposit());
             let mut amount_buyer_exceed: u128 = 0;
-            if env::attached_deposit() > price_per_product.0 * amount_product.0 {
-                Promise::new(signer_account_id()).transfer(env::attached_deposit() - price_per_product.0 * amount_product.0);
+            if env::attached_deposit() > price_per_product * amount_product {
+                Promise::new(signer_account_id()).transfer(env::attached_deposit() - price_per_product * amount_product);
             }
             match self.ordered_sell.get(&name_product) {
                 Some(mut treemap) => {
-                    while amount_product_mut.0 != 0 {
+                    while amount_product_mut != 0 {
                         match treemap.min() {
                             Some(lowest_sell_key_for_map) => {
                                 let mut lowest_sell = treemap.get(&lowest_sell_key_for_map).expect("CAN NOT BUG 2");
@@ -132,21 +133,21 @@ impl Contract {
                                     let amount_product_lowest_sell = lowest_sell.get_amount_product();
                                     if amount_product_mut < amount_product_lowest_sell {
                                         amount_buyer_exceed = amount_buyer_exceed +
-                                                              amount_product_mut.0 * (price_per_product.0 - price_per_product_lowest_sell.0);
+                                                              amount_product_mut * (price_per_product - price_per_product_lowest_sell);
                                         Promise::new(lowest_sell.get_command_owner_id())
-                                        .transfer(amount_product_mut.0 * price_per_product_lowest_sell.0);
-                                        lowest_sell.set_amount_product(U128(amount_product_lowest_sell.0 - amount_product_mut.0));
-                                        amount_product_mut = U128(0);
+                                        .transfer(amount_product_mut * price_per_product_lowest_sell);
+                                        lowest_sell.set_amount_product(amount_product_lowest_sell - amount_product_mut);
+                                        amount_product_mut = 0;
                                         treemap.insert(&lowest_sell.get_key_for_tree(),&lowest_sell);
                                         self.ordered_sell.insert(&name_product, &treemap);
                                         self.commands.insert(&lowest_sell.get_command_id(), &lowest_sell);
                                         break;
                                     } else {
                                         amount_buyer_exceed = amount_buyer_exceed +
-                                                              amount_product_lowest_sell.0 * (price_per_product.0 - price_per_product_lowest_sell.0);
+                                                              amount_product_lowest_sell * (price_per_product - price_per_product_lowest_sell);
                                         Promise::new(lowest_sell.get_command_owner_id())
-                                        .transfer(amount_product_lowest_sell.0 * price_per_product_lowest_sell.0);
-                                        amount_product_mut = U128(amount_product_mut.0 - amount_product_lowest_sell.0);
+                                        .transfer(amount_product_lowest_sell * price_per_product_lowest_sell);
+                                        amount_product_mut = amount_product_mut - amount_product_lowest_sell;
                                         treemap.remove(&lowest_sell.get_key_for_tree());
                                         self.ordered_buy.insert(&name_product, &treemap);
                                         self.commands.remove(&lowest_sell.get_command_id());
@@ -167,7 +168,7 @@ impl Contract {
                 Promise::new(signer_account_id())
                 .transfer(amount_buyer_exceed);
             }
-            if amount_product_mut.0 != 0 {
+            if amount_product_mut != 0 {
                 let command = Command::new(command_id.clone(), name_product.clone(), is_sell,
                     amount_product_mut, price_per_product, quality);
                 self.commands.insert(&command_id, &command);
@@ -213,7 +214,7 @@ impl Contract {
         assert_eq!(env::signer_account_id(), command.get_command_owner_id(), "ERROR YOU ARE NOT OWNER OF COMMAND");
         if !command.get_is_sell() {
             Promise::new(env::signer_account_id())
-            .transfer(command.get_amount_product().0 * command.get_price_per_product().0);
+            .transfer(command.get_amount_product() * command.get_price_per_product());
             let mut treemap = self.ordered_buy.get(&command.get_name_product()).expect("CAN NOT BUG");
             treemap.remove(&command.get_key_for_tree());
             self.ordered_buy.insert(&command.get_name_product(), &treemap);
@@ -255,7 +256,7 @@ mod test {
         set_context("buy_account", 1000, 1000);
 
         contract.add_command("command_1".to_owned(), "Iphone_14".to_owned()
-                             , false, U128(2), U128(500), None);
+                             , false, 2, 500, None);
 
         let test_command = contract.get_command("command_1".to_owned());
 
@@ -263,8 +264,8 @@ mod test {
         assert_eq!(test_command.get_command_id(), "command_1".to_owned());
         assert_eq!(test_command.get_name_product(), "Iphone_14".to_owned());
         assert_eq!(test_command.get_is_sell(), false);
-        assert_eq!(test_command.get_amount_product(), U128(2));
-        assert_eq!(test_command.get_price_per_product(), U128(500));
+        assert_eq!(test_command.get_amount_product(), 2);
+        assert_eq!(test_command.get_price_per_product(), 500);
         assert_eq!(test_command.get_command_owner_id(), "buy_account".parse().unwrap());
     }
 
@@ -275,7 +276,7 @@ mod test {
         set_context("sell_account", 0, 0);
 
         contract.add_command("command_1".to_owned(), "Iphone_14".to_owned()
-                             , true, U128(2), U128(500), None);
+                             , true, 2, 500, None);
 
         let test_command = contract.get_command("command_1".to_owned());
 
@@ -283,8 +284,8 @@ mod test {
         assert_eq!(test_command.get_command_id(), "command_1".to_owned());
         assert_eq!(test_command.get_name_product(), "Iphone_14".to_owned());
         assert_eq!(test_command.get_is_sell(), true);
-        assert_eq!(test_command.get_amount_product(), U128(2));
-        assert_eq!(test_command.get_price_per_product(), U128(500));
+        assert_eq!(test_command.get_amount_product(), 2);
+        assert_eq!(test_command.get_price_per_product(), 500);
         assert_eq!(test_command.get_command_owner_id(), "sell_account".parse().unwrap());
     }
 
@@ -296,7 +297,7 @@ mod test {
         set_context("buy_account", 1000, 999);
 
         contract.add_command("command_1".to_owned(), "Iphone_14".to_owned()
-                             , false, U128(2), U128(500), None);
+                             , false, 2, 500, None);
 
         let test_command = contract.get_command("command_1".to_owned());
 
@@ -304,8 +305,8 @@ mod test {
         assert_eq!(test_command.get_command_id(), "command_1".to_owned());
         assert_eq!(test_command.get_name_product(), "Iphone_14".to_owned());
         assert_eq!(test_command.get_is_sell(), false);
-        assert_eq!(test_command.get_amount_product(), U128(2));
-        assert_eq!(test_command.get_price_per_product(), U128(500));
+        assert_eq!(test_command.get_amount_product(), 2);
+        assert_eq!(test_command.get_price_per_product(), 500);
         assert_eq!(test_command.get_command_owner_id(), "buy_account".parse().unwrap());
     }
 
@@ -317,7 +318,7 @@ mod test {
         set_context("sell_account", 1000, 1000);
 
         contract.add_command("command_1".to_owned(), "Iphone_14".to_owned()
-                             , true, U128(2), U128(500), None);
+                             , true, 2, 500, None);
 
         let test_command = contract.get_command("command_1".to_owned());
 
@@ -325,8 +326,8 @@ mod test {
         assert_eq!(test_command.get_command_id(), "command_1".to_owned());
         assert_eq!(test_command.get_name_product(), "Iphone_14".to_owned());
         assert_eq!(test_command.get_is_sell(), true);
-        assert_eq!(test_command.get_amount_product(), U128(2));
-        assert_eq!(test_command.get_price_per_product(), U128(500));
+        assert_eq!(test_command.get_amount_product(), 2);
+        assert_eq!(test_command.get_price_per_product(), 500);
         assert_eq!(test_command.get_command_owner_id(), "sell_account".parse().unwrap());
     }
 }
