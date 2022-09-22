@@ -1,6 +1,4 @@
 use std::cmp::Ordering;
-use std::collections::hash_map::DefaultHasher;
-use std::hash::{Hash, Hasher};
 
 use near_sdk::borsh::{self, BorshDeserialize, BorshSerialize};
 use near_sdk::env::signer_account_id;
@@ -18,12 +16,6 @@ pub type CommandId = String;
 pub type NameProduct = String;
 pub const TRANSFER_GAS: Gas = Gas(10_000_000_000_000);
 
-fn calculate_hash<T: Hash>(t: &T) -> u64 {
-    let mut s = DefaultHasher::new();
-    t.hash(&mut s);
-    s.finish()
-}
-
 #[derive(BorshDeserialize, BorshSerialize, PanicOnDefault)]
 #[near_bindgen]
 struct Contract {
@@ -31,6 +23,7 @@ struct Contract {
     commands: LookupMap<CommandId, Command>,
     ordered_sell: LookupMap<NameProduct, TreeMap<KeyForTree, Command>>,
     ordered_buy: LookupMap<NameProduct, TreeMap<KeyForTree, Command>>,
+    counting_num: u64,
 }
 
 #[derive(BorshDeserialize, BorshSerialize, BorshStorageKey)]
@@ -38,8 +31,7 @@ enum StorageKey{
     CommandKey,
     OrderedSellKey,
     OrderedBuyKey,
-    TreeBuyKey(u64),
-    TreeSellKey(u64),
+    TreeKey(u64),
 }
 
 #[near_bindgen]
@@ -53,6 +45,7 @@ impl Contract {
             commands: LookupMap::new(StorageKey::CommandKey),
             ordered_sell: LookupMap::new(StorageKey::OrderedSellKey),
             ordered_buy: LookupMap::new(StorageKey::OrderedBuyKey),
+            counting_num: 1,
         }
     }
 
@@ -114,8 +107,9 @@ impl Contract {
                         treemap.insert(&KeyForTree::new(price_per_product, command_id), &command);
                     }
                     None => {
-                        let mut treemap = TreeMap::new(StorageKey::TreeSellKey(calculate_hash(&name_product)));
+                        let mut treemap = TreeMap::new(StorageKey::TreeKey(self.counting_num));
                         treemap.insert(&KeyForTree::new(price_per_product, command_id), &command);
+                        self.counting_num = self.counting_num + 1;
                         self.ordered_sell.insert(&name_product, &treemap);
                     }
                 }
@@ -182,8 +176,9 @@ impl Contract {
                         treemap.insert(&KeyForTree::new(price_per_product, command_id), &command);
                     }
                     None => {
-                        let mut treemap = TreeMap::new(StorageKey::TreeBuyKey(calculate_hash(&name_product)));
+                        let mut treemap = TreeMap::new(StorageKey::TreeKey(self.counting_num));
                         treemap.insert(&KeyForTree::new(price_per_product, command_id), &command);
+                        self.counting_num = self.counting_num + 1;
                         self.ordered_buy.insert(&name_product, &treemap);
                     }
                 }
