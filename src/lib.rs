@@ -273,12 +273,12 @@ mod test {
         let test_command = contract.get_command("command_1".to_owned());
 
         //test
-        assert_eq!(test_command.get_command_id(), "command_1".to_owned());
-        assert_eq!(test_command.get_name_product(), "Iphone_14".to_owned());
-        assert_eq!(test_command.get_is_sell(), false);
-        assert_eq!(test_command.get_amount_product(), 2);
-        assert_eq!(test_command.get_price_per_product(), 500);
-        assert_eq!(test_command.get_command_owner_id(), "buy_account".parse().unwrap());
+        assert_eq!(test_command.get_command_id(), "command_1", "WRONG_COMMAND_ID_1");
+        assert_eq!(test_command.get_name_product(), "Iphone_14", "WRONG_NAME_PRODUCT_1");
+        assert_eq!(test_command.get_is_sell(), false, "WRONG_IS_SELL_1");
+        assert_eq!(test_command.get_amount_product(), 2, "WRONG_AMOUNT_PRODUCT_1");
+        assert_eq!(test_command.get_price_per_product(), 500, "WRONG_PRICE_PER_PRODUCT_1");
+        assert_eq!(test_command.get_command_owner_id(), "buy_account".parse().unwrap(), "WRONG_COMMAND_OWNER_ID_1");
     }
 
     #[test]
@@ -293,12 +293,12 @@ mod test {
         let test_command = contract.get_command("command_1".to_owned());
 
         //test
-        assert_eq!(test_command.get_command_id(), "command_1".to_owned());
-        assert_eq!(test_command.get_name_product(), "Iphone_14".to_owned());
-        assert_eq!(test_command.get_is_sell(), true);
-        assert_eq!(test_command.get_amount_product(), 2);
-        assert_eq!(test_command.get_price_per_product(), 500);
-        assert_eq!(test_command.get_command_owner_id(), "sell_account".parse().unwrap());
+        assert_eq!(test_command.get_command_id(), "command_1", "WRONG_COMMAND_ID_2");
+        assert_eq!(test_command.get_name_product(), "Iphone_14", "WRONG_NAME_PRODUCT_2");
+        assert_eq!(test_command.get_is_sell(), true, "WRONG_IS_SELL_2");
+        assert_eq!(test_command.get_amount_product(), 2, "WRONG_AMOUNT_PRODUCT_2");
+        assert_eq!(test_command.get_price_per_product(), 500, "WRONG_PRICE_PER_PRODUCT_2");
+        assert_eq!(test_command.get_command_owner_id(), "sell_account".parse().unwrap(), "WRONG_COMMAND_OWNER_ID_2");
     }
 
     #[test]
@@ -314,12 +314,12 @@ mod test {
         let test_command = contract.get_command("command_1".to_owned());
 
         //test
-        assert_eq!(test_command.get_command_id(), "command_1".to_owned());
-        assert_eq!(test_command.get_name_product(), "Iphone_14".to_owned());
-        assert_eq!(test_command.get_is_sell(), false);
-        assert_eq!(test_command.get_amount_product(), 2);
-        assert_eq!(test_command.get_price_per_product(), 500);
-        assert_eq!(test_command.get_command_owner_id(), "buy_account".parse().unwrap());
+        assert_eq!(test_command.get_command_id(), "command_1", "WRONG_COMMAND_ID_3");
+        assert_eq!(test_command.get_name_product(), "Iphone_14", "WRONG_NAME_PRODUCT_3");
+        assert_eq!(test_command.get_is_sell(), false, "WRONG_IS_SELL_3");
+        assert_eq!(test_command.get_amount_product(), 2, "WRONG_AMOUNT_PRODUCT_3");
+        assert_eq!(test_command.get_price_per_product(), 500, "WRONG_PRICE_PER_PRODUCT_3");
+        assert_eq!(test_command.get_command_owner_id(), "buy_account".parse().unwrap(), "WRONG_COMMAND_OWNER_ID_3");
     }
 
     #[test]
@@ -335,12 +335,12 @@ mod test {
         let test_command = contract.get_command("command_1".to_owned());
 
         //test
-        assert_eq!(test_command.get_command_id(), "command_1".to_owned());
-        assert_eq!(test_command.get_name_product(), "Iphone_14".to_owned());
-        assert_eq!(test_command.get_is_sell(), true);
-        assert_eq!(test_command.get_amount_product(), 2);
-        assert_eq!(test_command.get_price_per_product(), 500);
-        assert_eq!(test_command.get_command_owner_id(), "sell_account".parse().unwrap());
+        assert_eq!(test_command.get_command_id(), "command_1", "WRONG_COMMAND_ID_4");
+        assert_eq!(test_command.get_name_product(), "Iphone_14", "WRONG_NAME_PRODUCT_4");
+        assert_eq!(test_command.get_is_sell(), true, "WRONG_IS_SELL_4");
+        assert_eq!(test_command.get_amount_product(), 2, "WRONG_AMOUNT_PRODUCT_4");
+        assert_eq!(test_command.get_price_per_product(), 500, "WRONG_PRICE_PER_PRODUCT_4");
+        assert_eq!(test_command.get_command_owner_id(), "sell_account".parse().unwrap(), "WRONG_COMMAND_OWNER_ID_4");
     }
 
     #[test]
@@ -360,18 +360,14 @@ mod test {
         let test_vec = contract.get_product_order_way("Iphone_14".to_owned(), true);
 
         //test
-        assert_eq!(test_vec.get(0).unwrap().get_command_id(), "command_2".to_owned());
-        assert_eq!(test_vec.get(0).unwrap().get_name_product(), "Iphone_14".to_owned());
-        assert_eq!(test_vec.get(0).unwrap().get_is_sell(), true);
-        assert_eq!(test_vec.get(0).unwrap().get_amount_product(), 3);
-        assert_eq!(test_vec.get(0).unwrap().get_price_per_product(), 499);
-        assert_eq!(test_vec.get(0).unwrap().get_command_owner_id(), "sell_account_2".parse().unwrap());
+        assert_eq!(test_vec.get(0).unwrap().get_command_id(), "command_2", "WRONG_COMMAND_ID_5");
+        assert_eq!(test_vec.get(0).unwrap().get_amount_product(), 3, "WRONG_AMOUNT_PRODUCT_5");
+        assert_eq!(test_vec.get(0).unwrap().get_price_per_product(), 499, "WRONG_PRICE_PER_PRODUCT_5");
+        assert_eq!(test_vec.get(0).unwrap().get_command_owner_id(), "sell_account_2".parse().unwrap(), "WRONG_COMMAND_OWNER_ID_5");
 
-        assert_eq!(test_vec.get(1).unwrap().get_command_id(), "command_1".to_owned());
-        assert_eq!(test_vec.get(1).unwrap().get_name_product(), "Iphone_14".to_owned());
-        assert_eq!(test_vec.get(1).unwrap().get_is_sell(), true);
-        assert_eq!(test_vec.get(1).unwrap().get_amount_product(), 2);
-        assert_eq!(test_vec.get(1).unwrap().get_price_per_product(), 500);
-        assert_eq!(test_vec.get(1).unwrap().get_command_owner_id(), "sell_account_1".parse().unwrap());
+        assert_eq!(test_vec.get(1).unwrap().get_command_id(), "command_1", "WRONG_COMMAND_ID_6");
+        assert_eq!(test_vec.get(1).unwrap().get_amount_product(), 2, "WRONG_AMOUNT_PRODUCT_6");
+        assert_eq!(test_vec.get(1).unwrap().get_price_per_product(), 500, "WRONG_PRICE_PER_PRODUCT_6");
+        assert_eq!(test_vec.get(1).unwrap().get_command_owner_id(), "sell_account_1".parse().unwrap(), "WRONG_COMMAND_OWNER_ID_6");
     }
 }
