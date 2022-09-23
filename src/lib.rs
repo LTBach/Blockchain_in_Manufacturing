@@ -53,16 +53,22 @@ impl Contract {
     #[payable]
     pub fn add_command(&mut self, command_id: CommandId, name_product: NameProduct, is_sell: bool, 
         amount_product: U128, price_per_product: U128, quality: Option<Quality>) {
+        match self.commands.get(&command_id) {
+            Some(_) => {
+                panic!("COMMAND_ID_HAD_EXIST");
+            }
+            None => {}
+        }
         let mut amount_product_mut = amount_product.0;
         if is_sell {
-            assert!(env::attached_deposit() == 0, "SELL COMMAND NOT USE DEPOSIT");
+            assert!(env::attached_deposit() == 0, "SELL_COMMAND_NOT_USE_DEPOSIT");
             let mut amount_seller_reiceive: u128 = 0;
             match self.ordered_buy.get(&name_product.clone()) {
                 Some(mut treemap) => {
                     while amount_product_mut != 0 {
                         match treemap.max() {
                             Some(highest_buy_key_for_map) => {
-                                let mut highest_buy = treemap.get(&highest_buy_key_for_map).expect("CAN NOT BUG 1");
+                                let mut highest_buy = treemap.get(&highest_buy_key_for_map).expect("CAN_NOT_BUG_1");
                                 let price_per_product_highest_buy = highest_buy.get_price_per_product();
                                 if price_per_product_highest_buy >= price_per_product.0 {
                                     let amount_product_highest_buy = highest_buy.get_amount_product();
@@ -106,6 +112,7 @@ impl Contract {
                 match self.ordered_sell.get(&name_product) {
                     Some(mut treemap) => {
                         treemap.insert(&KeyForTree::new(price_per_product.0, command_id), &command);
+                        self.ordered_sell.insert(&name_product, &treemap);
                     }
                     None => {
                         let mut treemap = TreeMap::new(StorageKey::TreeKey(self.counting_num));
@@ -117,7 +124,7 @@ impl Contract {
             }
         } else {
             assert!(env::attached_deposit() >= price_per_product.0 * amount_product.0,
-            "BUY COMMAND HAS NOT ENGOUGH DEPOSIT.IT NEED AT LEAST {}.YOU HAVE {}",price_per_product.0 * amount_product.0,env::attached_deposit());
+            "BUY_COMMAND_HAS_NOT_ENGOUGH_DEPOSIT.IT_NEED_AT_LEAST_{}.YOU_HAVE_{}",price_per_product.0 * amount_product.0,env::attached_deposit());
             let mut amount_buyer_exceed: u128 = 0;
             if env::attached_deposit() > price_per_product.0 * amount_product.0 {
                 Promise::new(signer_account_id()).transfer(env::attached_deposit() - price_per_product.0 * amount_product.0);
@@ -175,6 +182,7 @@ impl Contract {
                 match self.ordered_buy.get(&name_product) {
                     Some(mut treemap) => {
                         treemap.insert(&KeyForTree::new(price_per_product.0, command_id), &command);
+                        self.ordered_buy.insert(&name_product, &treemap);
                     }
                     None => {
                         let mut treemap = TreeMap::new(StorageKey::TreeKey(self.counting_num));
@@ -186,13 +194,14 @@ impl Contract {
             }
         }
     }
+
     pub fn get_product_order_way(&self, name_product: NameProduct, is_sell: bool) -> Vec<Command> {
         let mut ans = Vec::new();
         if is_sell {
             match self.ordered_sell.get(&name_product) {
                 Some(treemap) => {
                     for (_a, b) in treemap.iter() {
-                        ans.push(b);
+                        ans.push(b.clone());
                     }
                 },
                 None => {}
@@ -201,7 +210,7 @@ impl Contract {
             match self.ordered_buy.get(&name_product) {
                 Some(treemap) => {
                     for (_a, b) in treemap.iter_rev() {
-                        ans.push(b);
+                        ans.push(b.clone());
                     }
                 },
                 None => {}
@@ -210,28 +219,31 @@ impl Contract {
         ans
     }
     pub fn remove_command(&mut self, command_id: CommandId) {
-        let command = self.commands.get(&command_id).expect("ERROR COMMAND NOT FOUND");
-        assert_eq!(env::signer_account_id(), command.get_command_owner_id(), "ERROR YOU ARE NOT OWNER OF COMMAND");
+        let command = self.commands.get(&command_id).expect("ERROR_COMMAND_NOT_FOUND_1");
+        assert_eq!(env::signer_account_id(), command.get_command_owner_id(), "ERROR_YOU_ARE_NOT_OWNER_OF_COMMAND");
         if !command.get_is_sell() {
             Promise::new(env::signer_account_id())
             .transfer(command.get_amount_product() * command.get_price_per_product());
-            let mut treemap = self.ordered_buy.get(&command.get_name_product()).expect("CAN NOT BUG");
+            let mut treemap = self.ordered_buy.get(&command.get_name_product()).expect("CAN_NOT_BUG_2");
             treemap.remove(&command.get_key_for_tree());
             self.ordered_buy.insert(&command.get_name_product(), &treemap);
         } else {
-            let mut treemap = self.ordered_sell.get(&command.get_name_product()).expect("CAN NOT BUG");
+            let mut treemap = self.ordered_sell.get(&command.get_name_product()).expect("CAN_NOT_BUG_3");
             treemap.remove(&command.get_key_for_tree());
             self.ordered_sell.insert(&command.get_name_product(), &treemap);
         } 
         self.commands.remove(&command_id);
     }
     pub fn get_command(&self, command_id: CommandId) -> Command{
-        self.commands.get(&command_id).expect("ERROR COMMAND NOT FOUND")
+        self.commands.get(&command_id).expect("ERROR_COMMAND_NOT_FOUND_2")
     }
 }
 #[allow(unused_imports)]
 #[cfg(all(test, not(target_arch = "wasm32")))]
 mod test {
+    use std::collections::btree_map::Iter;
+    use std::path::is_separator;
+
     use super::*;
     use near_sdk::serde::ser::SerializeTupleStruct;
     use near_sdk::test_utils::{VMContextBuilder, accounts};
@@ -290,7 +302,7 @@ mod test {
     }
 
     #[test]
-    #[should_panic(expected = "BUY COMMAND HAS NOT ENGOUGH DEPOSIT.IT NEED AT LEAST 1000.YOU HAVE 999")]
+    #[should_panic(expected = "BUY_COMMAND_HAS_NOT_ENGOUGH_DEPOSIT.IT_NEED_AT_LEAST_1000.YOU_HAVE_999")]
     fn test_add_buy_command_with_lack_attached_deposit() {
         let mut contract = Contract::new(CONTRACT_ACCOUNT.parse().unwrap());
 
@@ -311,7 +323,7 @@ mod test {
     }
 
     #[test]
-    #[should_panic(expected = "SELL COMMAND NOT USE DEPOSIT")]
+    #[should_panic(expected = "SELL_COMMAND_NOT_USE_DEPOSIT")]
     fn test_add_sell_command_with_exceed_attached_deposit() {
         let mut contract = Contract::new(CONTRACT_ACCOUNT.parse().unwrap());
 
@@ -329,5 +341,37 @@ mod test {
         assert_eq!(test_command.get_amount_product(), 2);
         assert_eq!(test_command.get_price_per_product(), 500);
         assert_eq!(test_command.get_command_owner_id(), "sell_account".parse().unwrap());
+    }
+
+    #[test]
+    fn test_get_product_order_way(){
+        let mut contract = Contract::new(CONTRACT_ACCOUNT.parse().unwrap());
+
+        set_context("sell_account_1", 1000,0);
+
+        contract.add_command("command_1".to_owned(), "Iphone_14".to_owned()
+                             , true, U128(2), U128(500), None);
+                            
+        set_context("sell_account_2", 1000, 0);
+
+        contract.add_command("command_2".to_owned(), "Iphone_14".to_owned()
+                             , true, U128(3), U128(499), None);
+
+        let test_vec = contract.get_product_order_way("Iphone_14".to_owned(), true);
+
+        //test
+        assert_eq!(test_vec.get(0).unwrap().get_command_id(), "command_2".to_owned());
+        assert_eq!(test_vec.get(0).unwrap().get_name_product(), "Iphone_14".to_owned());
+        assert_eq!(test_vec.get(0).unwrap().get_is_sell(), true);
+        assert_eq!(test_vec.get(0).unwrap().get_amount_product(), 3);
+        assert_eq!(test_vec.get(0).unwrap().get_price_per_product(), 499);
+        assert_eq!(test_vec.get(0).unwrap().get_command_owner_id(), "sell_account_2".parse().unwrap());
+
+        assert_eq!(test_vec.get(1).unwrap().get_command_id(), "command_1".to_owned());
+        assert_eq!(test_vec.get(1).unwrap().get_name_product(), "Iphone_14".to_owned());
+        assert_eq!(test_vec.get(1).unwrap().get_is_sell(), true);
+        assert_eq!(test_vec.get(1).unwrap().get_amount_product(), 2);
+        assert_eq!(test_vec.get(1).unwrap().get_price_per_product(), 500);
+        assert_eq!(test_vec.get(1).unwrap().get_command_owner_id(), "sell_account_1".parse().unwrap());
     }
 }

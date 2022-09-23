@@ -3,17 +3,17 @@ use crate::*;
 pub mod quality;
 use quality::*;
 
-#[derive(BorshDeserialize, BorshSerialize, Deserialize, Serialize)]
+#[derive(BorshDeserialize, BorshSerialize, Deserialize, Serialize, Debug, Clone)]
 #[serde(crate = "near_sdk::serde")]
 pub struct Command {
-    command_id: CommandId,
-    name_product: NameProduct,
-    is_sell: bool,
-    amount_product: u128,
-    price_per_product: Balance,
-    quality: Option<Quality>,
-    create_at: Timestamp,
-    command_owner_id: AccountId,
+    pub command_id: CommandId,
+    pub name_product: NameProduct,
+    pub is_sell: bool,
+    pub amount_product: u128,
+    pub price_per_product: Balance,
+    pub quality: Option<Quality>,
+    pub create_at: Timestamp,
+    pub command_owner_id: AccountId,
 }
 
 #[allow(dead_code)]
