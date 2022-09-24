@@ -6,4 +6,4 @@ _ This is a project for Blockchain Hackathon in Vietnam Blockchain Summer School
 + Trần Quốc Nam
 + Nguyễn Hải Đăng
 
-Link to Integration Tests: https://github.com/LTBach/Blockchain_in_Manufacturing_Integration_Tests
+_ Link to Integration Tests: https://github.com/LTBach/Blockchain_in_Manufacturing_Integration_Tests
