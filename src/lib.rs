@@ -371,3 +371,8 @@ mod test {
         assert_eq!(test_vec.get(1).unwrap().get_command_owner_id(), "sell_account_1".parse().unwrap(), "WRONG_COMMAND_OWNER_ID_6");
     }
 }
+//using to test
+//near call manufacturing.uitdev.testnet add_command '{"command_id": "command_1", "name_product": "Iphone_14", "is_sell": true, "amount_product": "1", "price_per_product": "20", "quality": null}' --accountId demo-6.testnet
+//near view manufacturing.uitdev.testnet get_command '{"command_id": "command_1"}' --accountId demo-6.testnet
+//near call manufacturing.uitdev.testnet add_command '{"command_id": "command_2", "name_product": "Iphone_14", "is_sell": true, "amount_product": "2", "price_per_product": "21", "quality": null}' --accountId demo-5.testnet
+//near view manufacturing.uitdev.testnet get_product_order_way '{"name_product": "Iphone_14", "is_sell": true}'
