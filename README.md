@@ -8,5 +8,9 @@ _ This is a project for Blockchain Hackathon in Vietnam Blockchain Summer School
 
 _ Link to Integration Tests: https://github.com/LTBach/Blockchain_in_Manufacturing_Integration_Tests
 # Prerequires
++ NodeJS  
++ Near CLI  
++ Rust/Rustup and Wasm
++ Account in tesnet
 # How to interact with SmartContract:
 _ Clone repo.
