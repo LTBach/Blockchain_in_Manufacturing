@@ -13,7 +13,7 @@ _ Link to Integration Tests: https://github.com/LTBach/Blockchain_in_Manufacturi
 + Rust/Rustup and Wasm
 + Account in tesnet
 # How to interact with SmartContract:
-_ Clone repo.
+_ Clone repo.  
 _ cd to directory contain projects
 1. Create new account in testnet
 ```
