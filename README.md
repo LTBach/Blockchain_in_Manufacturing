@@ -24,8 +24,8 @@ near create $CONTRACT_ID --masterAccount $ACCOUNT_ID --initialBalance 5
 
 2. Build contract and Test(Unit and Integration Test)
 ```
-cargo test 
 ./build.sh
+cargo test 
 cargo run --example integration-tests
 ```
 
