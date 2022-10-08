@@ -1,7 +1,7 @@
 # Blockchain_in_Manufacturing
 _ This is a project for Blockchain Hackathon in Vietnam Blockchain Summer School made by Five Musketeers team include:
 + Lương Toàn Bách (leader)
-+ Nguyễn Thị Mỹ Hạnh
++ Nguyễn Thị Mỹ Hạnh (m
 + Bùi Tấn Hải Đăng
 + Trần Quốc Nam
 + Nguyễn Hải Đăng
@@ -33,3 +33,6 @@ cargo run --example integration-tests
 ```
 near deploy --wasmFile out/contract.wasm --accountId $CONTRACT_ID --initFunction new --initArgs '{"owner_id": "$ACCOUNT_ID"}'
 ```
+
+4. Call add command function
+'''
