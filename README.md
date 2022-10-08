@@ -1,7 +1,7 @@
 # Blockchain_in_Manufacturing
 _ This is a project for Blockchain Hackathon in Vietnam Blockchain Summer School made by Five Musketeers team include:
 + Lương Toàn Bách (leader)
-+ Nguyễn Thị Mỹ Hạnh (m
++ Nguyễn Thị Mỹ Hạnh (marketiing)
 + Bùi Tấn Hải Đăng
 + Trần Quốc Nam
 + Nguyễn Hải Đăng
