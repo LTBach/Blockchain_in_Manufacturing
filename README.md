@@ -6,32 +6,33 @@ _ This is a project for Blockchain Hackathon in Vietnam Blockchain Summer School
 + Nguyễn Hải Đăng
 
 _ Link to Integration Tests: https://github.com/LTBach/Blockchain_in_Manufacturing_Integration_Tests
-# Prerequires
+# Skill requires
 + NodeJS  
 + Near CLI  
 + Rust/Rustup and Wasm
 + Account in tesnet
 # How to interact with SmartContract:
+## 1. Prepare
 _ Clone repo.  
 _ cd to directory contain projects
-1. Create new account in testnet
+## 2. Create new account in testnet
 ```
 export CONTRACT_ID=blockchain_in_manufacturing.vbidev.testnet
 export ACCOUNT_ID=uitdev.testnet
 near create $CONTRACT_ID --masterAccount $ACCOUNT_ID --initialBalance 5
 ```
 
-2. Build contract and Test(Unit and Integration Test)
+## 3. Build contract and Test(Unit and Integration Test)
 ```
 ./build.sh
 cargo test 
 cargo run --example integration-tests
 ```
 
-3. Deploy and init contract
+## 4. Deploy and init contract
 ```
 near deploy --wasmFile out/contract.wasm --accountId $CONTRACT_ID --initFunction new --initArgs '{"owner_id": "$ACCOUNT_ID"}'
 ```
 
-4. Call add command function
-'''
+## 5. Call add command function
+
