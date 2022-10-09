@@ -17,9 +17,9 @@ _ Clone repo.
 _ cd to directory contain projects
 ## 2. Create new account in testnet
 ```
-export CONTRACT_ID=blockchain_in_manufacturing.vbidev.testnet
+export CONTRACT_ID=blockchain_in_manufacturing.uitdev.testnet
 export ACCOUNT_ID=uitdev.testnet
-near create $CONTRACT_ID --masterAccount $ACCOUNT_ID --initialBalance 5
+near create $CONTRACT_ID --masterAccount $ACCOUNT_ID --initialBalance 20
 ```
 
 ## 3. Build contract and Test(Unit and Integration Test)
