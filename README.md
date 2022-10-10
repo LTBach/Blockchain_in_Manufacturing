@@ -34,5 +34,9 @@ cargo run --example integration-tests
 near deploy --wasmFile out/contract.wasm --accountId $CONTRACT_ID --initFunction new --initArgs '{"owner_id": "$ACCOUNT_ID"}'
 ```
 
-## 5. Call add command function
+## 5. Call function
+#### add_command
+#### remove_command
+#### get_command
+#### get_product_order_way
 
